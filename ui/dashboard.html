@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Food Classification MLOps Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f5f5f5;
+        color: #333;
+      }
+
+      .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1rem 2rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .header h1 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .header p {
+        opacity: 0.9;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
+
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin-bottom: 2rem;
+      }
+
+      .card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+
+      .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      .card h3 {
+        color: #667eea;
+        margin-bottom: 1rem;
+        font-size: 1.3rem;
+      }
+
+      .metric {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #eee;
+      }
+
+      .metric:last-child {
+        border-bottom: none;
+      }
+
+      .metric-value {
+        font-weight: bold;
+        color: #764ba2;
+      }
+
+      .status-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 8px;
+      }
+
+      .status-online {
+        background-color: #4caf50;
+      }
+      .status-offline {
+        background-color: #f44336;
+      }
+
+      .upload-area {
+        border: 2px dashed #667eea;
+        border-radius: 10px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+      }
+
+      .upload-area:hover {
+        border-color: #764ba2;
+        background-color: #f8f9ff;
+      }
+
+      .upload-area.dragover {
+        border-color: #4caf50;
+        background-color: #f0fff0;
+      }
+
+      .btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        margin: 0.5rem;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      .btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .btn-danger {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+      }
+
+      .btn-success {
+        background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+      }
+
+      .prediction-result {
+        background: #f8f9ff;
+        border: 1px solid #667eea;
+        border-radius: 5px;
+        padding: 1rem;
+        margin-top: 1rem;
+      }
+
+      .confidence-bar {
+        background: #eee;
+        height: 20px;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-top: 0.5rem;
+      }
+
+      .confidence-fill {
+        background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+        height: 100%;
+        transition: width 0.5s ease;
+      }
+
+      .chart-container {
+        position: relative;
+        height: 300px;
+        margin-top: 1rem;
+      }
+
+      .alert {
+        padding: 1rem;
+        border-radius: 5px;
+        margin-bottom: 1rem;
+      }
+
+      .alert-success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+
+      .alert-error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+
+      .alert-info {
+        background-color: #d1ecf1;
+        border: 1px solid #b8daff;
+        color: #0c5460;
+      }
+
+      .loading {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .file-list {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #eee;
+        border-radius: 5px;
+        padding: 0.5rem;
+        margin-top: 1rem;
+      }
+
+      .file-item {
+        padding: 0.5rem;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .file-item:last-child {
+        border-bottom: none;
+      }
+
+      .tab-container {
+        margin-bottom: 2rem;
+      }
+
+      .tabs {
+        display: flex;
+        border-bottom: 2px solid #eee;
+      }
+
+      .tab {
+        padding: 1rem 2rem;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.3s ease;
+      }
+
+      .tab.active {
+        border-bottom-color: #667eea;
+        color: #667eea;
+        font-weight: bold;
+      }
+
+      .tab-content {
+        padding: 2rem 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>🍕 Food Classification MLOps Dashboard</h1>
+      <p>Monitor, predict, and retrain your food classification model</p>
+    </div>
+
+    <div class="container">
+      <!-- System Status -->
+      <div class="dashboard-grid">
+        <div class="card">
+          <h3>📊 System Status</h3>
+          <div class="metric">
+            <span>Model Status:</span>
+            <span class="metric-value">
+              <span
+                class="status-indicator status-online"
+                id="model-status-indicator"
+              ></span>
+              <span id="model-status">Loading...</span>
+            </span>
+          </div>
+          <div class="metric">
+            <span>Uptime:</span>
+            <span class="metric-value" id="uptime">-</span>
+          </div>
+          <div class="metric">
+            <span>Total Predictions:</span>
+            <span class="metric-value" id="total-predictions">-</span>
+          </div>
+          <div class="metric">
+            <span>Success Rate:</span>
+            <span class="metric-value" id="success-rate">-</span>
+          </div>
+          <div class="metric">
+            <span>Last Prediction:</span>
+            <span class="metric-value" id="last-prediction">-</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>🤖 Model Information</h3>
+          <div class="metric">
+            <span>Model Type:</span>
+            <span class="metric-value" id="model-type">-</span>
+          </div>
+          <div class="metric">
+            <span>Classes:</span>
+            <span class="metric-value" id="num-classes">-</span>
+          </div>
+          <div class="metric">
+            <span>Parameters:</span>
+            <span class="metric-value" id="total-parameters">-</span>
+          </div>
+          <div class="metric">
+            <span>Input Shape:</span>
+            <span class="metric-value" id="input-shape">-</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Navigation -->
+      <div class="tab-container">
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab('prediction')">
+            🔮 Prediction
+          </div>
+          <div class="tab" onclick="switchTab('visualization')">
+            📈 Visualizations
+          </div>
+          <div class="tab" onclick="switchTab('training')">🚀 Training</div>
+          <div class="tab" onclick="switchTab('monitoring')">📊 Monitoring</div>
+        </div>
+      </div>
+
+      <!-- Prediction Tab -->
+      <div id="prediction-tab" class="tab-content">
+        <div class="dashboard-grid">
+          <div class="card">
+            <h3>🔮 Single Image Prediction</h3>
+            <div
+              class="upload-area"
+              id="single-upload"
+              onclick="document.getElementById('single-file').click()"
+            >
+              <p>📷 Click or drag an image here to classify</p>
+              <input
+                type="file"
+                id="single-file"
+                accept="image/*"
+                style="display: none"
+                onchange="handleSingleUpload(this)"
+              />
+            </div>
+            <div id="single-prediction-result" class="hidden"></div>
+          </div>
+
+          <div class="card">
+            <h3>📦 Batch Prediction</h3>
+            <div
+              class="upload-area"
+              id="batch-upload"
+              onclick="document.getElementById('batch-files').click()"
+            >
+              <p>📷 Click or drag multiple images here</p>
+              <input
+                type="file"
+                id="batch-files"
+                accept="image/*"
+                multiple
+                style="display: none"
+                onchange="handleBatchUpload(this)"
+              />
+            </div>
+            <div id="batch-file-list" class="file-list hidden"></div>
+            <button
+              class="btn"
+              id="batch-predict-btn"
+              onclick="predictBatch()"
+              disabled
+            >
+              Predict Batch
+            </button>
+            <div id="batch-prediction-results" class="hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Visualization Tab -->
+      <div id="visualization-tab" class="tab-content hidden">
+        <div class="dashboard-grid">
+          <div class="card">
+            <h3>📊 Class Distribution</h3>
+            <div class="chart-container">
+              <canvas id="class-distribution-chart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>📈 Confidence Statistics</h3>
+            <div class="chart-container">
+              <canvas id="confidence-chart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>🕐 Predictions Over Time</h3>
+            <div class="chart-container">
+              <canvas id="time-chart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>🎯 Model Performance</h3>
+            <div id="performance-metrics"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Training Tab -->
+      <div id="training-tab" class="tab-content hidden">
+        <div class="dashboard-grid">
+          <div class="card">
+            <h3>📥 Upload Training Data</h3>
+            <p>Upload a ZIP file containing organized training data:</p>
+            <div
+              class="upload-area"
+              id="training-upload"
+              onclick="document.getElementById('training-file').click()"
+            >
+              <p>📦 Click or drag a ZIP file here</p>
+              <input
+                type="file"
+                id="training-file"
+                accept=".zip"
+                style="display: none"
+                onchange="handleTrainingUpload(this)"
+              />
+            </div>
+            <div id="training-upload-result" class="hidden"></div>
+          </div>
+
+          <div class="card">
+            <h3>🚀 Model Retraining</h3>
+            <p>Trigger model retraining with uploaded data:</p>
+            <button class="btn" id="retrain-btn" onclick="triggerRetraining()">
+              Start Retraining
+            </button>
+            <div id="retraining-status" class="hidden"></div>
+          </div>
+
+          <div class="card">
+            <h3>📋 Training History</h3>
+            <div id="training-history"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monitoring Tab -->
+      <div id="monitoring-tab" class="tab-content hidden">
+        <div class="dashboard-grid">
+          <div class="card">
+            <h3>📝 Recent Predictions</h3>
+            <div id="recent-predictions"></div>
+          </div>
+
+          <div class="card">
+            <h3>💾 Download Logs</h3>
+            <button class="btn" onclick="downloadLogs()">Download CSV</button>
+          </div>
+
+          <div class="card">
+            <h3>🔄 System Actions</h3>
+            <button class="btn" onclick="refreshData()">Refresh Data</button>
+            <button class="btn btn-danger" onclick="clearLogs()">
+              Clear Logs
+            </button>
+          </div>
+
+          <div class="card">
+            <h3>⚙️ API Endpoints</h3>
+            <div id="api-endpoints"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Global variables
+      let currentTab = "prediction";
+      let batchFiles = [];
+      let charts = {};
+
+      // API base URL - adjust if needed
+      const API_BASE = "http://localhost:8000";
+
+      // Initialize dashboard
+      document.addEventListener("DOMContentLoaded", function () {
+        loadSystemStatus();
+        loadModelInfo();
+        loadVisualizations();
+        setupDragAndDrop();
+
+        // Refresh data every 30 seconds
+        setInterval(() => {
+          loadSystemStatus();
+          if (currentTab === "visualization") {
+            loadVisualizations();
+          }
+          if (currentTab === "monitoring") {
+            loadRecentPredictions();
+          }
+        }, 30000);
+      });
+
+      // Tab switching
+      function switchTab(tabName) {
+        // Hide all tabs
+        document.querySelectorAll(".tab-content").forEach((tab) => {
+          tab.classList.add("hidden");
+        });
+
+        // Remove active class from all tabs
+        document.querySelectorAll(".tab").forEach((tab) => {
+          tab.classList.remove("active");
+        });
+
+        // Show selected tab
+        document.getElementById(tabName + "-tab").classList.remove("hidden");
+        event.target.classList.add("active");
+
+        currentTab = tabName;
+
+        // Load tab-specific data
+        if (tabName === "visualization") {
+          loadVisualizations();
+        } else if (tabName === "monitoring") {
+          loadRecentPredictions();
+        }
+      }
+
+      // Load system status
+      async function loadSystemStatus() {
+        try {
+          const response = await fetch(`${API_BASE}/metrics`);
+          const data = await response.json();
+
+          document.getElementById("total-predictions").textContent =
+            data.total_predictions || 0;
+          document.getElementById("success-rate").textContent = `${
+            data.success_rate?.toFixed(1) || 0
+          }%`;
+          document.getElementById("uptime").textContent = `${
+            data.uptime_hours?.toFixed(1) || 0
+          }h`;
+          document.getElementById("last-prediction").textContent =
+            data.last_prediction
+              ? new Date(data.last_prediction).toLocaleString()
+              : "Never";
+
+          // Check health
+          const healthResponse = await fetch(`${API_BASE}/health`);
+          const healthData = await healthResponse.json();
+
+          const indicator = document.getElementById("model-status-indicator");
+          const status = document.getElementById("model-status");
+
+          if (healthData.model_status === "available") {
+            indicator.className = "status-indicator status-online";
+            status.textContent = "Online";
+          } else {
+            indicator.className = "status-indicator status-offline";
+            status.textContent = "Offline";
+          }
+        } catch (error) {
+          console.error("Error loading system status:", error);
+          showAlert("Failed to load system status", "error");
+        }
+      }
+
+      // Load model information
+      async function loadModelInfo() {
+        try {
+          const response = await fetch(`${API_BASE}/model-info`);
+          const data = await response.json();
+
+          document.getElementById("model-type").textContent =
+            "CNN with Transfer Learning";
+          document.getElementById("num-classes").textContent =
+            data.num_classes || "-";
+          document.getElementById("total-parameters").textContent =
+            data.total_parameters
+              ? data.total_parameters.toLocaleString()
+              : "-";
+          document.getElementById("input-shape").textContent = data.input_shape
+            ? JSON.stringify(data.input_shape)
+            : "-";
+        } catch (error) {
+          console.error("Error loading model info:", error);
+        }
+      }
+
+      // Handle single image upload
+      async function handleSingleUpload(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        showLoading("single-prediction-result");
+
+        try {
+          const response = await fetch(`${API_BASE}/predict`, {
+            method: "POST",
+            body: formData,
+          });
+
+          const result = await response.json();
+          displaySinglePrediction(result, file);
+        } catch (error) {
+          console.error("Prediction error:", error);
+          showAlert("Prediction failed", "error");
+        }
+      }
+
+      // Display single prediction result
+      function displaySinglePrediction(result, file) {
+        const container = document.getElementById("single-prediction-result");
+
+        if (result.success) {
+          const prediction = result.prediction;
+          container.innerHTML = `
+                    <div class="prediction-result">
+                        <h4>🎯 Prediction Result</h4>
+                        <p><strong>File:</strong> ${result.filename}</p>
+                        <p><strong>Predicted Class:</strong> ${
+                          prediction.predicted_class
+                        }</p>
+                        <p><strong>Confidence:</strong> ${(
+                          prediction.confidence * 100
+                        ).toFixed(2)}%</p>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${
+                              prediction.confidence * 100
+                            }%"></div>
+                        </div>
+                        ${
+                          prediction.all_probabilities
+                            ? "<details><summary>All Class Probabilities</summary>" +
+                              Object.entries(prediction.all_probabilities)
+                                .map(
+                                  ([cls, prob]) =>
+                                    `<div class="metric"><span>${cls}:</span><span>${(
+                                      prob * 100
+                                    ).toFixed(2)}%</span></div>`
+                                )
+                                .join("") +
+                              "</details>"
+                            : ""
+                        }
+                    </div>
+                `;
+        } else {
+          container.innerHTML = `<div class="alert alert-error">Prediction failed</div>`;
+        }
+
+        container.classList.remove("hidden");
+      }
+
+      // Handle batch upload
+      function handleBatchUpload(input) {
+        batchFiles = Array.from(input.files);
+        displayBatchFiles();
+        document.getElementById("batch-predict-btn").disabled =
+          batchFiles.length === 0;
+      }
+
+      // Display batch files
+      function displayBatchFiles() {
+        const container = document.getElementById("batch-file-list");
+
+        if (batchFiles.length === 0) {
+          container.classList.add("hidden");
+          return;
+        }
+
+        container.innerHTML = batchFiles
+          .map(
+            (file, index) => `
+                <div class="file-item">
+                    <span>${file.name}</span>
+                    <button class="btn btn-danger" onclick="removeBatchFile(${index})">Remove</button>
+                </div>
+            `
+          )
+          .join("");
+
+        container.classList.remove("hidden");
+      }
+
+      // Remove file from batch
+      function removeBatchFile(index) {
+        batchFiles.splice(index, 1);
+        displayBatchFiles();
+        document.getElementById("batch-predict-btn").disabled =
+          batchFiles.length === 0;
+      }
+
+      // Predict batch
+      async function predictBatch() {
+        if (batchFiles.length === 0) return;
+
+        const formData = new FormData();
+        batchFiles.forEach((file) => formData.append("files", file));
+
+        document.getElementById("batch-predict-btn").disabled = true;
+        showLoading("batch-prediction-results");
+
+        try {
+          const response = await fetch(`${API_BASE}/predict/batch`, {
+            method: "POST",
+            body: formData,
+          });
+
+          const result = await response.json();
+          displayBatchResults(result);
+        } catch (error) {
+          console.error("Batch prediction error:", error);
+          showAlert("Batch prediction failed", "error");
+        } finally {
+          document.getElementById("batch-predict-btn").disabled = false;
+        }
+      }
+
+      // Display batch results
+      function displayBatchResults(result) {
+        const container = document.getElementById("batch-prediction-results");
+
+        container.innerHTML = `
+                <div class="alert alert-info">
+                    <strong>Batch Results:</strong> ${result.successful}/${
+          result.total_processed
+        } successful
+                </div>
+                <div class="file-list">
+                    ${result.batch_results
+                      .map(
+                        (item) => `
+                        <div class="file-item">
+                            <span>${item.filename}</span>
+                            <span class="metric-value ${
+                              item.success ? "text-success" : "text-error"
+                            }">
+                                ${
+                                  item.success
+                                    ? `${item.prediction.predicted_class} (${(
+                                        item.prediction.confidence * 100
+                                      ).toFixed(1)}%)`
+                                    : `Error: ${item.error}`
+                                }
+                            </span>
+                        </div>
+                    `
+                      )
+                      .join("")}
+                </div>
+            `;
+
+        container.classList.remove("hidden");
+      }
+
+      // Load visualizations
+      async function loadVisualizations() {
+        try {
+          const response = await fetch(`${API_BASE}/visualizations`);
+          const data = await response.json();
+
+          if (data.message) {
+            document.getElementById("visualization-tab").innerHTML = `
+                        <div class="card">
+                            <div class="alert alert-info">${data.message}</div>
+                        </div>
+                    `;
+            return;
+          }
+
+          // Class distribution chart
+          createClassDistributionChart(data.class_distribution);
+
+          // Confidence statistics
+          createConfidenceChart(data.confidence_statistics);
+
+          // Time-based predictions
+          createTimeChart(data.predictions_by_hour);
+        } catch (error) {
+          console.error("Error loading visualizations:", error);
+        }
+      }
+
+      // Create class distribution chart
+      function createClassDistributionChart(data) {
+        const ctx = document
+          .getElementById("class-distribution-chart")
+          .getContext("2d");
+
+        if (charts.classDistribution) {
+          charts.classDistribution.destroy();
+        }
+
+        charts.classDistribution = new Chart(ctx, {
+          type: "doughnut",
+          data: {
+            labels: Object.keys(data),
+            datasets: [
+              {
+                data: Object.values(data),
+                backgroundColor: [
+                  "#FF6384",
+                  "#36A2EB",
+                  "#FFCE56",
+                  "#4BC0C0",
+                  "#9966FF",
+                  "#FF9F40",
+                  "#FF6384",
+                  "#C9CBCF",
+                  "#4BC0C0",
+                  "#FF6384",
+                  "#36A2EB",
+                ],
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: "bottom",
+              },
+            },
+          },
+        });
+      }
+
+      // Create confidence chart
+      function createConfidenceChart(data) {
+        const ctx = document
+          .getElementById("confidence-chart")
+          .getContext("2d");
+
+        if (charts.confidence) {
+          charts.confidence.destroy();
+        }
+
+        charts.confidence = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: ["Mean", "Std Dev", "Min", "Max"],
+            datasets: [
+              {
+                label: "Confidence Statistics",
+                data: [data.mean, data.std, data.min, data.max],
+                backgroundColor: "#667eea",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+                max: 1,
+              },
+            },
+          },
+        });
+      }
+
+      // Create time-based chart
+      function createTimeChart(data) {
+        const ctx = document.getElementById("time-chart").getContext("2d");
+
+        if (charts.time) {
+          charts.time.destroy();
+        }
+
+        const hours = Array.from({ length: 24 }, (_, i) => i);
+        const values = hours.map((hour) => data[hour] || 0);
+
+        charts.time = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: hours.map((h) => `${h}:00`),
+            datasets: [
+              {
+                label: "Predictions per Hour",
+                data: values,
+                borderColor: "#667eea",
+                backgroundColor: "rgba(102, 126, 234, 0.1)",
+                tension: 0.4,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+              },
+            },
+          },
+        });
+      }
+
+      // Handle training data upload
+      async function handleTrainingUpload(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        showLoading("training-upload-result");
+
+        try {
+          const response = await fetch(`${API_BASE}/upload-data`, {
+            method: "POST",
+            body: formData,
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            document.getElementById("training-upload-result").innerHTML = `
+                        <div class="alert alert-success">
+                            <strong>Upload Successful!</strong><br>
+                            Total images: ${result.data_info.total_files}<br>
+                            Valid images: ${result.data_info.valid_images}<br>
+                            Classes: ${
+                              Object.keys(result.data_info.classes).length
+                            }
+                        </div>
+                    `;
+          } else {
+            showAlert("Upload failed", "error");
+          }
+
+          document
+            .getElementById("training-upload-result")
+            .classList.remove("hidden");
+        } catch (error) {
+          console.error("Upload error:", error);
+          showAlert("Upload failed", "error");
+        }
+      }
+
+      // Trigger retraining
+      async function triggerRetraining() {
+        if (
+          !confirm(
+            "Are you sure you want to start retraining? This may take several minutes."
+          )
+        ) {
+          return;
+        }
+
+        document.getElementById("retrain-btn").disabled = true;
+        showLoading("retraining-status");
+
+        try {
+          const response = await fetch(`${API_BASE}/retrain`, {
+            method: "POST",
+          });
+
+          const result = await response.json();
+
+          if (result.task_id) {
+            document.getElementById("retraining-status").innerHTML = `
+                        <div class="alert alert-info">
+                            <strong>Retraining Started!</strong><br>
+                            Task ID: ${result.task_id}<br>
+                            Status: ${result.status}
+                        </div>
+                    `;
+
+            // Poll for status updates
+            pollRetrainingStatus(result.task_id);
+          } else {
+            showAlert("Failed to start retraining", "error");
+          }
+
+          document
+            .getElementById("retraining-status")
+            .classList.remove("hidden");
+        } catch (error) {
+          console.error("Retraining error:", error);
+          showAlert("Failed to start retraining", "error");
+        } finally {
+          document.getElementById("retrain-btn").disabled = false;
+        }
+      }
+
+      // Poll retraining status
+      async function pollRetrainingStatus(taskId) {
+        try {
+          const response = await fetch(`${API_BASE}/retrain/status/${taskId}`);
+          const status = await response.json();
+
+          document.getElementById("retraining-status").innerHTML = `
+                    <div class="alert alert-info">
+                        <strong>Retraining Status:</strong> ${status.status}<br>
+                        ${status.error ? `Error: ${status.error}` : ""}
+                        ${
+                          status.completed_at
+                            ? `Completed: ${new Date(
+                                status.completed_at
+                              ).toLocaleString()}`
+                            : ""
+                        }
+                    </div>
+                `;
+
+          if (status.status === "completed" || status.status === "failed") {
+            if (status.status === "completed") {
+              showAlert("Retraining completed successfully!", "success");
+              loadModelInfo(); // Refresh model info
+            }
+            return;
+          }
+
+          // Continue polling
+          setTimeout(() => pollRetrainingStatus(taskId), 5000);
+        } catch (error) {
+          console.error("Error polling retraining status:", error);
+        }
+      }
+
+      // Load recent predictions
+      async function loadRecentPredictions() {
+        try {
+          const response = await fetch(`${API_BASE}/metrics`);
+          const data = await response.json();
+
+          const container = document.getElementById("recent-predictions");
+
+          if (data.recent_predictions && data.recent_predictions.length > 0) {
+            container.innerHTML = data.recent_predictions
+              .map(
+                (pred) => `
+                        <div class="metric">
+                            <span>${pred.filename}</span>
+                            <span class="metric-value">${pred.prediction} (${(
+                  pred.confidence * 100
+                ).toFixed(1)}%)</span>
+                        </div>
+                    `
+              )
+              .join("");
+          } else {
+            container.innerHTML =
+              '<div class="alert alert-info">No recent predictions</div>';
+          }
+        } catch (error) {
+          console.error("Error loading recent predictions:", error);
+        }
+      }
+
+      // Download logs
+      async function downloadLogs() {
+        try {
+          const response = await fetch(`${API_BASE}/download-logs`);
+          const data = await response.json();
+
+          const blob = new Blob([data.csv_data], { type: "text/csv" });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "prediction_logs.csv";
+          a.click();
+          window.URL.revokeObjectURL(url);
+        } catch (error) {
+          console.error("Error downloading logs:", error);
+          showAlert("Failed to download logs", "error");
+        }
+      }
+
+      // Utility functions
+      function showAlert(message, type) {
+        const alertDiv = document.createElement("div");
+        alertDiv.className = `alert alert-${type}`;
+        alertDiv.textContent = message;
+
+        document.body.insertBefore(alertDiv, document.body.firstChild);
+
+        setTimeout(() => {
+          alertDiv.remove();
+        }, 5000);
+      }
+
+      function showLoading(containerId) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '<div class="loading"></div> Loading...';
+        container.classList.remove("hidden");
+      }
+
+      function refreshData() {
+        loadSystemStatus();
+        loadModelInfo();
+        if (currentTab === "visualization") {
+          loadVisualizations();
+        }
+        if (currentTab === "monitoring") {
+          loadRecentPredictions();
+        }
+        showAlert("Data refreshed", "success");
+      }
+
+      // Setup drag and drop
+      function setupDragAndDrop() {
+        const uploadAreas = document.querySelectorAll(".upload-area");
+
+        uploadAreas.forEach((area) => {
+          area.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            area.classList.add("dragover");
+          });
+
+          area.addEventListener("dragleave", () => {
+            area.classList.remove("dragover");
+          });
+
+          area.addEventListener("drop", (e) => {
+            e.preventDefault();
+            area.classList.remove("dragover");
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+              const input = area.querySelector('input[type="file"]');
+              input.files = files;
+              input.dispatchEvent(new Event("change"));
+            }
+          });
+        });
+      }
+    </script>
+  </body>
+</html>
