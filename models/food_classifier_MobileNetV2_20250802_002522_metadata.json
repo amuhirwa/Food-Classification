@@ -1,0 +1,12 @@
+{
+    "model_name": "food_classifier_MobileNetV2_20250802_002522",
+    "created_date": "2025-08-02T00:25:37.130298",
+    "num_classes": 11,
+    "input_shape": [
+        224,
+        224,
+        3
+    ],
+    "model_path": "models\\food_classifier_MobileNetV2_20250802_002522.h5",
+    "savedmodel_path": "models\\food_classifier_MobileNetV2_20250802_002522_savedmodel"
+}

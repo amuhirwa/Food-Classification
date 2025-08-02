@@ -1,6 +1,6 @@
 {
     "model_name": "food_classifier_final",
-    "created_date": "2025-07-31T17:45:56.440916",
+    "created_date": "2025-08-02T00:25:50.797335",
     "num_classes": 11,
     "input_shape": [
         224,

@@ -32,7 +32,6 @@ services:
       - food-classifier-api
     restart: unless-stopped
 
-  # Optional: Add monitoring services
   prometheus:
     image: prom/prometheus:latest
     ports:

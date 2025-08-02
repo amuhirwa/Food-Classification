@@ -200,20 +200,79 @@ class FoodDataPreprocessor:
         logger.info(f"Dataset analysis: {stats}")
         return stats
     
+    def prepare_generators(self, data_dir=None, existing_data_dir=None, validation_split=0.2):
+        """
+        Prepare data generators for retraining
+        Combines new data with existing data if available
+        """
+        if data_dir is None:
+            raise ValueError("Data directory must be provided")
+        
+        # First, discover classes from the directory
+        self.load_classes_from_directory(data_dir)
+        
+        # If existing data directory is provided, combine datasets
+        combined_data_dir = data_dir
+        if existing_data_dir and os.path.exists(existing_data_dir):
+            logger.info("Combining new data with existing data for retraining")
+            combined_data_dir = self._combine_datasets(new_data_dir=data_dir, existing_data_dir=existing_data_dir)
+            # Reload classes from combined dataset
+            self.load_classes_from_directory(combined_data_dir)
+        
+        # Create data generators for retraining
+        train_gen, val_gen = self.create_data_generators(combined_data_dir, validation_split=validation_split)
+        
+        # Return generators and class names for model training
+        return train_gen, val_gen, self.classes
+    
+    def _combine_datasets(self, new_data_dir, existing_data_dir):
+        """
+        Combine new training data with existing data
+        Creates a temporary combined dataset directory
+        """
+        import shutil
+        import tempfile
+        
+        # Create temporary directory for combined data
+        combined_dir = os.path.join(tempfile.gettempdir(), "combined_training_data")
+        if os.path.exists(combined_dir):
+            shutil.rmtree(combined_dir)
+        os.makedirs(combined_dir)
+        
+        # Copy existing data
+        if os.path.exists(existing_data_dir):
+            for class_name in os.listdir(existing_data_dir):
+                src_class_dir = os.path.join(existing_data_dir, class_name)
+                if os.path.isdir(src_class_dir):
+                    dst_class_dir = os.path.join(combined_dir, class_name)
+                    shutil.copytree(src_class_dir, dst_class_dir)
+        
+        # Add new data
+        if os.path.exists(new_data_dir):
+            for class_name in os.listdir(new_data_dir):
+                src_class_dir = os.path.join(new_data_dir, class_name)
+                if os.path.isdir(src_class_dir):
+                    dst_class_dir = os.path.join(combined_dir, class_name)
+                    
+                    # If class already exists, add images to existing directory
+                    if os.path.exists(dst_class_dir):
+                        for file_name in os.listdir(src_class_dir):
+                            if file_name.lower().endswith(('.png', '.jpg', '.jpeg')):
+                                src_file = os.path.join(src_class_dir, file_name)
+                                dst_file = os.path.join(dst_class_dir, f"new_{file_name}")
+                                shutil.copy2(src_file, dst_file)
+                    else:
+                        # New class, copy entire directory
+                        shutil.copytree(src_class_dir, dst_class_dir)
+        
+        logger.info(f"Combined dataset created at: {combined_dir}")
+        return combined_dir
+
     def prepare_retraining_data(self, new_data_dir, existing_data_dir=None):
         """
         Prepare data for retraining by combining new and existing data
         """
-        # If existing data directory is provided, combine datasets
-        if existing_data_dir and os.path.exists(existing_data_dir):
-            logger.info("Combining new data with existing data for retraining")
-            # This would involve copying/moving files as needed
-            # Implementation depends on specific requirements
-        
-        # Create data generators for retraining
-        train_gen, val_gen = self.create_data_generators(new_data_dir)
-        
-        return train_gen, val_gen
+        return self.prepare_generators(new_data_dir, existing_data_dir)
     
     def save_class_mappings(self, save_dir):
         """

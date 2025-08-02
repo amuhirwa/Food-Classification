@@ -1,48 +1,29 @@
 # Core ML libraries
-tensorflow==2.13.0
-numpy==1.24.3
-pandas==1.5.3
-scikit-learn==1.3.0
-matplotlib==3.7.2
-seaborn==0.12.2
-pillow==10.0.0
-opencv-python==4.8.0.76
+tensorflow-cpu
+numpy
+pandas
+scikit-learn
+pillow
+opencv-python
 
 # API and web framework
-fastapi==0.103.0
-uvicorn[standard]==0.23.2
-python-multipart==0.0.6
-aiofiles==23.2.1
-
-# Data processing
-joblib==1.3.2
-h5py==3.9.0
-
-# Load testing
-locust==2.17.0
+fastapi
+uvicorn[standard]
+sqlalchemy
+alembic
+pydantic
+python-multipart
+aiofiles
 
 # Utilities
-python-dotenv==1.0.0
-pydantic==2.3.0
-requests==2.31.0
+pydantic
+requests
 
-# Development and testing
-pytest==7.4.0
-pytest-asyncio==0.21.1
-black==23.7.0
-flake8==6.0.0
 
-# Monitoring and logging
-psutil==5.9.5
-structlog==23.1.0
+# tensorflow-gpu
 
-# Optional: For GPU support (uncomment if using GPU)
-# tensorflow-gpu==2.13.0
+# plotly
+# dash
 
-# Optional: For advanced visualization
-# plotly==5.15.0
-# dash==2.11.1
-
-# Optional: For model optimization
-# tensorflowjs==4.10.0
-# tensorflow-lite==2.13.0
+# tensorflowjs
+# tensorflow-lite

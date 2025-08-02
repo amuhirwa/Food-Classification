@@ -96,7 +96,7 @@ class FoodClassificationModel:
             logger.error(f"Error creating model: {str(e)}")
             return None
     
-    def get_callbacks(self, patience=10, min_lr=1e-7, monitor='val_loss'):
+    def get_callbacks(self, patience=5, min_lr=1e-7, monitor='val_loss'):
         """
         Get training callbacks for optimization
         """
@@ -183,7 +183,7 @@ class FoodClassificationModel:
         """
         if self.model is None:
             logger.error("No model to save. Train a model first.")
-            return False
+            return None
         
         try:
             # Save model
@@ -197,10 +197,12 @@ class FoodClassificationModel:
             if include_metadata:
                 # Save training history
                 if self.history:
+                    import joblib
                     history_path = os.path.join(self.model_dir, f"{model_name}_history.pkl")
                     joblib.dump(self.history.history, history_path)
                 
                 # Save model metadata
+                import json
                 metadata = {
                     'model_name': model_name,
                     'created_date': datetime.now().isoformat(),
@@ -215,11 +217,11 @@ class FoodClassificationModel:
                     json.dump(metadata, f, indent=4)
             
             logger.info(f"Model saved successfully to {model_path}")
-            return True
+            return model_path
             
         except Exception as e:
             logger.error(f"Error saving model: {str(e)}")
-            return False
+            return None
     
     def load_model(self, model_path):
         """
@@ -285,9 +287,9 @@ class FoodClassificationModel:
             return None
     
     def retrain_model(self, new_train_generator, new_val_generator, 
-                     base_model_path=None, epochs=30):
+                     base_model_path=None, epochs=30, model_version=None):
         """
-        Retrain the model with new data
+        Retrain the model with new data using proper versioning
         """
         try:
             if base_model_path and os.path.exists(base_model_path):
@@ -310,16 +312,159 @@ class FoodClassificationModel:
                 verbose=1
             )
             
-            # Save retrained model
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            retrained_model_name = f"food_classifier_retrained_{timestamp}"
-            self.save_model(retrained_model_name)
+            # Save retrained model with proper versioning
+            if model_version is None:
+                # Auto-increment version
+                model_version = self._get_next_version()
             
-            logger.info("Model retraining completed!")
-            return retrain_history
+            retrained_model_name = f"food_classifier_v{model_version}"
+            model_path = self.save_model(retrained_model_name)
+            
+            # Create latest symlink/copy
+            if model_path:
+                self._create_latest_model(model_path)
+            
+            logger.info(f"Model retraining completed! Saved as v{model_version}")
+            return retrain_history, model_version
             
         except Exception as e:
             logger.error(f"Error during retraining: {str(e)}")
+            return None, None
+    
+    def _get_next_version(self):
+        """Get the next version number for model naming"""
+        import glob
+        
+        # Find existing versioned models
+        pattern = os.path.join(self.model_dir, "food_classifier_v*.h5")
+        existing_models = glob.glob(pattern)
+        
+        if not existing_models:
+            return 1
+        
+        # Extract version numbers
+        versions = []
+        for model_path in existing_models:
+            filename = os.path.basename(model_path)
+            try:
+                # Extract version from filename like "food_classifier_v2.h5"
+                version_str = filename.split('_v')[1].split('.')[0]
+                versions.append(int(version_str))
+            except (IndexError, ValueError):
+                continue
+        
+        return max(versions) + 1 if versions else 1
+    
+    def _create_latest_model(self, model_path):
+        """Create a latest model copy/link"""
+        try:
+            import shutil
+            
+            latest_path = os.path.join(self.model_dir, "food_classifier_latest.h5")
+            
+            # Remove existing latest model
+            if os.path.exists(latest_path):
+                os.remove(latest_path)
+            
+            # Copy the new model as latest
+            shutil.copy2(model_path, latest_path)
+            
+            # Also create savedmodel format for latest
+            if model_path.endswith('.h5'):
+                model = tf.keras.models.load_model(model_path)
+                latest_savedmodel_path = os.path.join(self.model_dir, "food_classifier_latest_savedmodel")
+                if os.path.exists(latest_savedmodel_path):
+                    shutil.rmtree(latest_savedmodel_path)
+                model.save(latest_savedmodel_path, save_format='tf')
+            
+            logger.info(f"Created latest model at {latest_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error creating latest model: {str(e)}")
+            return False
+    
+    def get_available_models(self):
+        """Get list of available model versions"""
+        import glob
+        import json
+        
+        models = []
+        
+        # Find all versioned models
+        pattern = os.path.join(self.model_dir, "food_classifier_v*.h5")
+        versioned_models = glob.glob(pattern)
+        
+        for model_path in versioned_models:
+            try:
+                filename = os.path.basename(model_path)
+                version_str = filename.split('_v')[1].split('.')[0]
+                version = int(version_str)
+                
+                # Get metadata if available
+                metadata_path = model_path.replace('.h5', '_metadata.json')
+                metadata = {}
+                if os.path.exists(metadata_path):
+                    with open(metadata_path, 'r') as f:
+                        metadata = json.load(f)
+                
+                # Get file stats
+                stat = os.stat(model_path)
+                
+                models.append({
+                    'version': version,
+                    'model_name': f"food_classifier_v{version}",
+                    'path': model_path,
+                    'created_date': metadata.get('created_date', 'Unknown'),
+                    'file_size_mb': round(stat.st_size / (1024 * 1024), 2),
+                    'num_classes': metadata.get('num_classes', 'Unknown'),
+                    'is_latest': False
+                })
+                
+            except (IndexError, ValueError) as e:
+                logger.warning(f"Could not parse model version from {filename}: {e}")
+                continue
+        
+        # Check for latest model
+        latest_path = os.path.join(self.model_dir, "food_classifier_latest.h5")
+        if os.path.exists(latest_path):
+            # Find which version is the latest
+            latest_stat = os.stat(latest_path)
+            for model in models:
+                model_stat = os.stat(model['path'])
+                if abs(model_stat.st_size - latest_stat.st_size) < 1000:  # Same size, likely same model
+                    model['is_latest'] = True
+                    break
+        
+        # Sort by version number
+        models.sort(key=lambda x: x['version'], reverse=True)
+        
+        return models
+    
+    def load_model_by_version(self, version=None):
+        """Load a specific model version or latest"""
+        try:
+            if version is None or version == 'latest':
+                # Load latest model
+                model_path = os.path.join(self.model_dir, "food_classifier_latest.h5")
+                if not os.path.exists(model_path):
+                    # Fallback to highest version
+                    available_models = self.get_available_models()
+                    if not available_models:
+                        raise FileNotFoundError("No models found")
+                    model_path = available_models[0]['path']
+            else:
+                # Load specific version
+                model_path = os.path.join(self.model_dir, f"food_classifier_v{version}.h5")
+                if not os.path.exists(model_path):
+                    raise FileNotFoundError(f"Model version {version} not found")
+            
+            self.model = tf.keras.models.load_model(model_path)
+            logger.info(f"Model loaded successfully from {model_path}")
+            return self.model
+            
+        except Exception as e:
+            logger.error(f"Error loading model: {str(e)}")
             return None
     
     def get_model_summary(self):
