@@ -37,12 +37,20 @@ except ImportError:
     from preprocessing import FoodDataPreprocessor
 
 # Import API modules
-from database import get_db, DatasetCRUD, ModelCRUD, PredictionCRUD, RetrainingCRUD, get_system_stats
-from schemas import (
-    DatasetUploadResponse, ModelVersionResponse, PredictionResponse, 
-    RetrainingTaskResponse, HealthResponse, ModelInfo, SystemStats,
-    AnalyticsResponse, BatchUploadResponse, ErrorResponse, SystemMetricsResponse
-)
+try:
+    from .database import get_db, DatasetCRUD, ModelCRUD, PredictionCRUD, RetrainingCRUD, get_system_stats
+    from .schemas import (
+        DatasetUploadResponse, ModelVersionResponse, PredictionResponse, 
+        RetrainingTaskResponse, HealthResponse, ModelInfo, SystemStats,
+        AnalyticsResponse, BatchUploadResponse, ErrorResponse, SystemMetricsResponse
+    )
+except ImportError:
+    from database import get_db, DatasetCRUD, ModelCRUD, PredictionCRUD, RetrainingCRUD, get_system_stats
+    from schemas import (
+        DatasetUploadResponse, ModelVersionResponse, PredictionResponse, 
+        RetrainingTaskResponse, HealthResponse, ModelInfo, SystemStats,
+        AnalyticsResponse, BatchUploadResponse, ErrorResponse, SystemMetricsResponse
+    )
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -67,10 +75,10 @@ app.add_middleware(
 )
 
 # Global variables
-MODEL_DIR = "../models"
-DATA_DIR = "../data"
-UPLOAD_DIR = "../uploads"
-RETRAIN_DATA_DIR = "../retrain_data"
+MODEL_DIR = "models"
+DATA_DIR = "data"
+UPLOAD_DIR = "uploads"
+RETRAIN_DATA_DIR = "retrain_data"
 
 # Create directories
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -107,7 +115,13 @@ def load_predictor(model_version=None):
             model_path = os.path.join(MODEL_DIR, "food_classifier_latest.h5")
             if not os.path.exists(model_path):
                 # Fallback to the original model
-                model_path = os.path.join(MODEL_DIR, "food_classifier_final.h5")
+                original_path = os.path.join(MODEL_DIR, "food_classifier_final.h5")
+                if os.path.exists(original_path):
+                    model_path = original_path
+                else:
+                    model_path = original_path  # Will fail below, but let's try
+        elif model_version == 'original' or model_version == 'final':
+            model_path = os.path.join(MODEL_DIR, "food_classifier_final.h5")
         else:
             model_path = os.path.join(MODEL_DIR, f"food_classifier_v{model_version}.h5")
         
@@ -123,8 +137,10 @@ def load_predictor(model_version=None):
                 version_info = "latest"
             elif '_v' in model_path:
                 version_info = model_path.split('_v')[-1].split('.')[0]
-            else:
+            elif 'final' in model_path:
                 version_info = "original"
+            else:
+                version_info = "unknown"
             
             logger.info(f"Predictor loaded successfully from {model_path} (version: {version_info})")
             return True
@@ -146,7 +162,7 @@ load_predictor()
 
 # Serve static files
 try:
-    app.mount("/static", StaticFiles(directory="../ui"), name="static")
+    app.mount("/static", StaticFiles(directory="ui"), name="static")
 except Exception as e:
     logger.warning(f"Could not mount static files: {e}")
 
@@ -155,7 +171,7 @@ except Exception as e:
 async def dashboard():
     """Serve the main dashboard"""
     try:
-        with open("../ui/dashboard.html", "r") as f:
+        with open("ui/dashboard.html", "r") as f:
             return HTMLResponse(content=f.read())
     except FileNotFoundError:
         return HTMLResponse(content="<h1>MLOps Dashboard - Upload dashboard.html to ui/ folder</h1>")
@@ -234,9 +250,9 @@ async def predict_single_image(file: UploadFile = File(...), db: Session = Depen
             # Log prediction
             log_entry = {
                 "filename": file.filename,
-                "prediction": result["predicted_class"],
-                "confidence": result["confidence"],
-                "timestamp": result["timestamp"]
+                "prediction": result.get("predicted_class", "Unknown"),
+                "confidence": float(result.get("confidence", 0.0)),
+                "timestamp": result.get("timestamp", datetime.now().isoformat())
             }
             prediction_logs.append(log_entry)
             
@@ -251,11 +267,11 @@ async def predict_single_image(file: UploadFile = File(...), db: Session = Depen
                     db=db,
                     model_version_id=active_model.id,
                     filename=file.filename,
-                    predicted_class=result[0]['class'],
-                    predicted_class_idx=result[0].get('class_index', 0),
-                    confidence=result[0]['confidence'],
+                    predicted_class=result.get("predicted_class", "Unknown"),
+                    predicted_class_idx=result.get("predicted_class_idx", 0),
+                    confidence=float(result.get("confidence", 0.0)),
                     processing_time_ms= (time.time() - start_time) * 1000,
-                    all_probabilities=result
+                    all_probabilities=result.get("all_probabilities", {})
                 )
 
             
@@ -275,95 +291,6 @@ async def predict_single_image(file: UploadFile = File(...), db: Session = Depen
         logger.error(f"Prediction error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 
-
-# @app.post("/predict", response_model=PredictionResponse)
-# async def predict_image(file: UploadFile = File(...), db: Session = Depends(get_db)):
-#     """Predict food category from uploaded image"""
-#     global model_metrics, prediction_logs
-    
-#     if predictor is None:
-#         model_metrics["failed_predictions"] += 1
-#         raise HTTPException(status_code=503, detail="Model not available. Train a model first.")
-    
-#     if not file.content_type.startswith('image/'):
-#         model_metrics["failed_predictions"] += 1
-#         raise HTTPException(status_code=400, detail="File must be an image")
-    
-#     start_time = time.time()
-    
-#     try:
-#         # Read image bytes
-#         image_bytes = await file.read()
-#         image_io = io.BytesIO(image_bytes)
-        
-#         # Make prediction
-#         predictions = predictor.predict_from_bytes(image_io, return_probabilities=True)
-#         processing_time = (time.time() - start_time) * 1000  # Convert to milliseconds
-        
-#         # Update metrics
-#         model_metrics["total_predictions"] += 1
-#         model_metrics["successful_predictions"] += 1
-        
-#         # Update average processing time
-#         current_avg = model_metrics["average_processing_time"]
-#         total_preds = model_metrics["successful_predictions"]
-#         model_metrics["average_processing_time"] = (
-#             (current_avg * (total_preds - 1) + processing_time) / total_preds
-#         )
-        
-#         # Log prediction
-#         prediction_log = {
-#             "timestamp": datetime.now().isoformat(),
-#             "filename": file.filename,
-#             "predicted_class": predictions[0]['class'],
-#             "confidence": predictions[0]['confidence'],
-#             "processing_time_ms": processing_time
-#         }
-#         prediction_logs.append(prediction_log)
-        
-#         # Keep only last 100 predictions
-#         if len(prediction_logs) > 100:
-#             prediction_logs.pop(0)
-        
-#         # Log prediction to database
-#         active_model = ModelCRUD.get_active_model(db)
-#         if active_model:
-#             PredictionCRUD.create_prediction(
-#                 db=db,
-#                 model_version_id=active_model.id,
-#                 filename=file.filename,
-#                 predicted_class=predictions[0]['class'],
-#                 predicted_class_idx=predictions[0].get('class_index', 0),
-#                 confidence=predictions[0]['confidence'],
-#                 processing_time_ms=processing_time,
-#                 all_probabilities=predictions
-#             )
-        
-#         # Format response
-#         formatted_predictions = [
-#             {
-#                 "class": pred['class'],
-#                 "confidence": pred['confidence'],
-#                 "class_index": pred.get('class_index', i)
-#             }
-#             for i, pred in enumerate(predictions)
-#         ]
-        
-#         return PredictionResponse(
-#             filename=file.filename,
-#             predictions=formatted_predictions,
-#             processing_time_ms=processing_time,
-#             timestamp=datetime.now()
-#         )
-    
-#     except Exception as e:
-#         model_metrics["failed_predictions"] += 1
-#         model_metrics["errors"].append({
-#             "timestamp": datetime.now().isoformat(),
-#             "error": f"Prediction failed: {str(e)}"
-#         })
-#         logger.error(f"Prediction error: {str(e)}")
-#         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
 
 
 @app.post("/predict/batch")
@@ -406,11 +333,11 @@ async def predict_batch_images(files: List[UploadFile] = File(...), db: Session 
                         db=db,
                         model_version_id=active_model.id,
                         filename=file.filename,
-                        predicted_class=result[0]['class'],
-                        predicted_class_idx=result[0].get('class_index', 0),
-                        confidence=result[0]['confidence'],
+                        predicted_class=result.get("predicted_class", "Unknown"),
+                        predicted_class_idx=result.get("predicted_class_idx", 0),
+                        confidence=float(result.get("confidence", 0.0)),
                         processing_time_ms=processing_time,
-                        all_probabilities=result
+                        all_probabilities=result.get("all_probabilities", {})
                     )
 
                 results.append({
@@ -450,105 +377,185 @@ async def predict_batch_images(files: List[UploadFile] = File(...), db: Session 
 @app.get("/visualizations")
 async def get_visualizations():
     """
-    Get data visualizations and insights
+    Get data visualizations and insights based on the dataset
     """
     try:
-        # Analyze prediction logs for insights
-        if not prediction_logs:
-            return {"message": "No predictions made yet"}
+        # Analyze the main dataset and training data
+        dataset_insights = {}
         
-        df = pd.DataFrame(prediction_logs)
+        # 1. Analyze original dataset (if available)
+        original_data_insights = {}
+        if os.path.exists(DATA_DIR):
+            try:
+                original_classes = []
+                original_class_counts = {}
+                total_original_images = 0
+                
+                for class_dir in os.listdir(DATA_DIR):
+                    class_path = os.path.join(DATA_DIR, class_dir)
+                    if os.path.isdir(class_path):
+                        image_files = [f for f in os.listdir(class_path) 
+                                     if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+                        class_count = len(image_files)
+                        original_classes.append(class_dir)
+                        original_class_counts[class_dir] = class_count
+                        total_original_images += class_count
+                
+                original_data_insights = {
+                    "total_classes": len(original_classes),
+                    "total_images": total_original_images,
+                    "class_distribution": original_class_counts,
+                    "classes": original_classes,
+                    "average_images_per_class": round(total_original_images / max(len(original_classes), 1), 2),
+                    "min_images_per_class": min(original_class_counts.values()) if original_class_counts else 0,
+                    "max_images_per_class": max(original_class_counts.values()) if original_class_counts else 0
+                }
+                
+                # Calculate class imbalance ratio
+                if original_class_counts:
+                    min_count = min(original_class_counts.values())
+                    max_count = max(original_class_counts.values())
+                    original_data_insights["class_imbalance_ratio"] = round(max_count / max(min_count, 1), 2)
+                
+            except Exception as e:
+                logger.warning(f"Error analyzing original dataset: {e}")
+                original_data_insights = {"error": "Could not analyze original dataset"}
         
-        # Class distribution
-        class_counts = df['prediction'].value_counts().to_dict()
+        # 2. Analyze retraining data (if available)
+        retrain_data_insights = {}
+        if os.path.exists(RETRAIN_DATA_DIR):
+            try:
+                retrain_classes = []
+                retrain_class_counts = {}
+                total_retrain_images = 0
+                
+                for item in os.listdir(RETRAIN_DATA_DIR):
+                    item_path = os.path.join(RETRAIN_DATA_DIR, item)
+                    if os.path.isdir(item_path):
+                        image_files = [f for f in os.listdir(item_path) 
+                                     if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+                        class_count = len(image_files)
+                        retrain_classes.append(item)
+                        retrain_class_counts[item] = class_count
+                        total_retrain_images += class_count
+                
+                retrain_data_insights = {
+                    "total_classes": len(retrain_classes),
+                    "total_images": total_retrain_images,
+                    "class_distribution": retrain_class_counts,
+                    "classes": retrain_classes,
+                    "average_images_per_class": round(total_retrain_images / max(len(retrain_classes), 1), 2) if retrain_classes else 0,
+                    "min_images_per_class": min(retrain_class_counts.values()) if retrain_class_counts else 0,
+                    "max_images_per_class": max(retrain_class_counts.values()) if retrain_class_counts else 0,
+                    "ready_for_training": total_retrain_images > 0 and len(retrain_classes) > 1
+                }
+                
+                # Calculate class imbalance ratio
+                if retrain_class_counts:
+                    min_count = min(retrain_class_counts.values())
+                    max_count = max(retrain_class_counts.values())
+                    retrain_data_insights["class_imbalance_ratio"] = round(max_count / max(min_count, 1), 2)
+                
+            except Exception as e:
+                logger.warning(f"Error analyzing retrain dataset: {e}")
+                retrain_data_insights = {"error": "Could not analyze retrain dataset"}
         
-        # Confidence distribution
-        confidence_stats = {
-            "mean": df['confidence'].mean(),
-            "std": df['confidence'].std(),
-            "min": df['confidence'].min(),
-            "max": df['confidence'].max()
-        }
+        # 3. Analyze prediction patterns (recent predictions for performance insights)
+        prediction_insights = {}
+        if prediction_logs:
+            try:
+                df = pd.DataFrame(prediction_logs)
+                
+                # Prediction class distribution
+                if 'prediction' in df.columns:
+                    pred_class_counts = df['prediction'].value_counts().to_dict()
+                    prediction_insights["prediction_distribution"] = pred_class_counts
+                    prediction_insights["most_predicted_class"] = df['prediction'].mode().iloc[0] if not df['prediction'].empty else None
+                
+                # Confidence analysis
+                if 'confidence' in df.columns:
+                    confidence_series = df['confidence'].dropna()
+                    if len(confidence_series) > 0:
+                        import math
+                        conf_mean = float(confidence_series.mean())
+                        conf_std = float(confidence_series.std())
+                        conf_min = float(confidence_series.min())
+                        conf_max = float(confidence_series.max())
+                        
+                        prediction_insights["confidence_stats"] = {
+                            "mean": conf_mean if not (math.isnan(conf_mean) or math.isinf(conf_mean)) else 0.0,
+                            "std": conf_std if not (math.isnan(conf_std) or math.isinf(conf_std)) else 0.0,
+                            "min": conf_min if not (math.isnan(conf_min) or math.isinf(conf_min)) else 0.0,
+                            "max": conf_max if not (math.isnan(conf_max) or math.isinf(conf_max)) else 0.0
+                        }
+                        
+                        # High/low confidence predictions
+                        high_conf_threshold = 0.8
+                        low_conf_threshold = 0.5
+                        high_conf_count = len(confidence_series[confidence_series >= high_conf_threshold])
+                        low_conf_count = len(confidence_series[confidence_series < low_conf_threshold])
+                        
+                        prediction_insights["confidence_breakdown"] = {
+                            "high_confidence_predictions": high_conf_count,
+                            "low_confidence_predictions": low_conf_count,
+                            "high_confidence_percentage": round((high_conf_count / len(confidence_series)) * 100, 2),
+                            "low_confidence_percentage": round((low_conf_count / len(confidence_series)) * 100, 2)
+                        }
+                
+                prediction_insights["total_predictions"] = len(prediction_logs)
+                
+            except Exception as e:
+                logger.warning(f"Error analyzing predictions: {e}")
+                prediction_insights = {"total_predictions": len(prediction_logs)}
         
-        # Predictions over time
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        hourly_predictions = df.groupby(df['timestamp'].dt.hour).size().to_dict()
+        # 4. Dataset recommendations
+        recommendations = []
         
+        # Check dataset balance
+        if original_data_insights.get("class_imbalance_ratio", 1) > 3:
+            recommendations.append("Consider balancing your dataset - some classes have significantly more images than others")
+        
+        if retrain_data_insights.get("total_images", 0) < 100:
+            recommendations.append("Upload more training data - aim for at least 50-100 images per class for better performance")
+        
+        if retrain_data_insights.get("total_classes", 0) < 2:
+            recommendations.append("Add more food categories to improve model diversity")
+        
+        if prediction_insights.get("confidence_breakdown", {}).get("low_confidence_percentage", 0) > 30:
+            recommendations.append("High percentage of low-confidence predictions - consider adding more training data or improving image quality")
+        
+        # Compile all insights
         visualizations = {
-            "class_distribution": class_counts,
-            "confidence_statistics": confidence_stats,
-            "predictions_by_hour": hourly_predictions,
-            "total_predictions": len(prediction_logs)
+            "dataset_overview": {
+                "original_data": original_data_insights,
+                "retrain_data": retrain_data_insights,
+                "data_ready_for_training": retrain_data_insights.get("ready_for_training", False),
+                "total_available_classes": len(set(
+                    original_data_insights.get("classes", []) + 
+                    retrain_data_insights.get("classes", [])
+                ))
+            },
+            "prediction_insights": prediction_insights,
+            "recommendations": recommendations,
+            "summary": {
+                "original_dataset_size": original_data_insights.get("total_images", 0),
+                "retrain_dataset_size": retrain_data_insights.get("total_images", 0),
+                "total_predictions_made": prediction_insights.get("total_predictions", 0),
+                "model_performance_indicator": "Good" if prediction_insights.get("confidence_breakdown", {}).get("high_confidence_percentage", 0) > 70 else "Needs Improvement"
+            }
         }
         
         return visualizations
         
     except Exception as e:
         logger.error(f"Visualization error: {str(e)}")
-        return {"error": f"Failed to generate visualizations: {str(e)}"}
-
-
-# @app.post("/predict/batch")
-# async def predict_batch(files: List[UploadFile] = File(...), db: Session = Depends(get_db)):
-#     """Predict food categories for multiple images"""
-#     if predictor is None:
-#         raise HTTPException(status_code=503, detail="Model not available")
-    
-#     results = []
-#     active_model = ModelCRUD.get_active_model(db)
-    
-#     for file in files:
-#         if not file.content_type.startswith('image/'):
-#             continue
-        
-#         start_time = time.time()
-        
-#         try:
-#             image_bytes = await file.read()
-#             image = Image.open(io.BytesIO(image_bytes))
-#             predictions = predictor.predict_image(image)
-#             processing_time = (time.time() - start_time) * 1000
-            
-#             # Log prediction to database
-#             if active_model:
-#                 PredictionCRUD.create_prediction(
-#                     db=db,
-#                     model_version_id=active_model.id,
-#                     filename=file.filename,
-#                     predicted_class=predictions[0]['class'],
-#                     predicted_class_idx=predictions[0].get('class_index', 0),
-#                     confidence=predictions[0]['confidence'],
-#                     processing_time_ms=processing_time,
-#                     all_probabilities=predictions
-#                 )
-            
-#             formatted_predictions = [
-#                 {
-#                     "class": pred['class'],
-#                     "confidence": pred['confidence'],
-#                     "class_index": pred.get('class_index', i)
-#                 }
-#                 for i, pred in enumerate(predictions)
-#             ]
-            
-#             results.append({
-#                 "filename": file.filename,
-#                 "predictions": formatted_predictions,
-#                 "processing_time_ms": processing_time
-#             })
-            
-#         except Exception as e:
-#             results.append({
-#                 "filename": file.filename,
-#                 "error": str(e)
-#             })
-    
-#     return {
-#         "results": results,
-#         "total_processed": len(results),
-#         "timestamp": datetime.now()
-#     }
-
+        return {
+            "error": f"Failed to generate dataset visualizations: {str(e)}",
+            "dataset_overview": {},
+            "prediction_insights": {},
+            "recommendations": ["Error analyzing data - check server logs"],
+            "summary": {}
+        }
 
 @app.post("/upload/training-data", response_model=BatchUploadResponse)
 async def upload_training_data(
@@ -719,18 +726,31 @@ async def retrain_model(
             if not os.path.exists(RETRAIN_DATA_DIR) or not os.listdir(RETRAIN_DATA_DIR):
                 raise ValueError("No training data found. Please upload training data first.")
             
-            # Prepare data with proper class discovery
-            preprocessor_retrain = FoodDataPreprocessor()
-            train_generator, val_generator, class_names = preprocessor_retrain.prepare_generators(
-                data_dir=RETRAIN_DATA_DIR,
-            )
+            # Get the current active model to preserve its class structure
+            latest_model_path = os.path.join(MODEL_DIR, "food_classifier_latest.h5")
+            base_model_path = latest_model_path if os.path.exists(latest_model_path) else None
             
-            if not class_names:
-                raise ValueError("No classes found in training data")
+            if not base_model_path:
+                # Always use the original model as base
+                original_path = os.path.join(MODEL_DIR, "food_classifier_final.h5")
+                if os.path.exists(original_path):
+                    base_model_path = original_path
+                else:
+                    raise ValueError("No base model (food_classifier_final.h5) found to retrain from")
             
-            logger.info(f"Found {len(class_names)} classes: {class_names}")
+            logger.info(f"Using base model: {base_model_path}")
             
-            # Initialize model trainer using the proper FoodClassificationModel
+            # Load existing class mappings to preserve model structure
+            existing_class_mappings_path = os.path.join(MODEL_DIR, 'classes.json')
+            if not os.path.exists(existing_class_mappings_path):
+                raise ValueError("No existing class mappings found. Cannot preserve model structure.")
+            
+            with open(existing_class_mappings_path, 'r') as f:
+                existing_classes = json.load(f)
+                
+            logger.info(f"Preserving existing class structure: {len(existing_classes)} classes: {existing_classes}")
+            
+            # Initialize model trainer using the existing model's class count
             global model_trainer
             if model_trainer is None:
                 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
@@ -740,12 +760,26 @@ async def retrain_model(
                     from model import FoodClassificationModel
                 model_trainer = FoodClassificationModel
             
-            # Create model instance with proper number of classes
-            model_instance = model_trainer(num_classes=len(class_names), model_dir=MODEL_DIR)
+            # Create model instance with the EXISTING number of classes (preserve structure)
+            model_instance = model_trainer(num_classes=len(existing_classes), model_dir=MODEL_DIR)
             
-            # Get the current latest model as base for retraining
-            latest_model_path = os.path.join(MODEL_DIR, "food_classifier_latest.h5")
-            base_model_path = latest_model_path if os.path.exists(latest_model_path) else None
+            # Prepare data generators that respect the existing class structure
+            preprocessor_retrain = FoodDataPreprocessor()
+            
+            # Set the existing classes in the preprocessor to ensure consistency
+            preprocessor_retrain.classes = existing_classes
+            preprocessor_retrain.class_to_idx = {cls: idx for idx, cls in enumerate(existing_classes)}
+            preprocessor_retrain.idx_to_class = {idx: cls for idx, cls in enumerate(existing_classes)}
+            
+            # Create data generators with the preserved class structure
+            train_generator, val_generator = preprocessor_retrain.create_data_generators(
+                data_dir=RETRAIN_DATA_DIR,
+                validation_split=0.2,
+                preserve_class_mappings=True  # Preserve existing class structure
+            )
+            
+            # Verify that the new data can be mapped to existing classes
+            logger.info(f"Training data will be fine-tuned on existing {len(existing_classes)} classes")
             
             # Use the retrain_model method from FoodClassificationModel
             retrain_history, model_version = model_instance.retrain_model(
@@ -758,14 +792,15 @@ async def retrain_model(
             if retrain_history is None or model_version is None:
                 raise ValueError("Model retraining failed")
             
-            # Save class mappings for the new model
-            preprocessor_retrain.save_class_mappings(MODEL_DIR)
+            # DO NOT save new class mappings - preserve the existing ones
+            # The class structure should remain unchanged
+            logger.info("Preserving existing class mappings - no changes to model structure")
             
             # Calculate performance metrics
             final_accuracy = float(retrain_history.history['accuracy'][-1])
             final_val_accuracy = float(retrain_history.history['val_accuracy'][-1])
             
-            logger.info(f"Training completed - Accuracy: {final_accuracy:.3f}, Val Accuracy: {final_val_accuracy:.3f}")
+            logger.info(f"Fine-tuning completed - Accuracy: {final_accuracy:.3f}, Val Accuracy: {final_val_accuracy:.3f}")
             
             # Create new model version in database
             new_model = ModelCRUD.create_model_version(
@@ -774,14 +809,16 @@ async def retrain_model(
                 version=str(model_version),
                 model_path=os.path.join(MODEL_DIR, f"food_classifier_v{model_version}.h5"),
                 base_model="MobileNetV2",
-                num_classes=len(class_names),
+                num_classes=len(existing_classes),
                 training_params=training_params,
                 performance_metrics={
                     "final_accuracy": final_accuracy,
                     "final_val_accuracy": final_val_accuracy,
-                    "num_classes": len(class_names),
-                    "class_names": class_names,
-                    "model_version": model_version
+                    "num_classes": len(existing_classes),
+                    "class_names": existing_classes,
+                    "model_version": model_version,
+                    "fine_tuned": True,
+                    "preserved_class_structure": True
                 }
             )
             
@@ -978,22 +1015,42 @@ async def get_training_data_structure():
             original_classes = [d for d in os.listdir(DATA_DIR) 
                               if os.path.isdir(os.path.join(DATA_DIR, d))]
         
+        # Check existing class mappings to show preservation info
+        existing_classes = []
+        class_mappings_path = os.path.join(MODEL_DIR, 'classes.json')
+        if os.path.exists(class_mappings_path):
+            try:
+                with open(class_mappings_path, 'r') as f:
+                    existing_classes = json.load(f)
+            except Exception as e:
+                logger.warning(f"Could not load existing class mappings: {e}")
+        
         return {
             "retrain_data_structure": structure,
             "total_categories": len(categories),
             "total_files": total_files,
             "categories": categories,
             "original_classes": original_classes,
+            "existing_model_classes": existing_classes,
+            "class_preservation_info": {
+                "model_has_existing_classes": len(existing_classes) > 0,
+                "existing_class_count": len(existing_classes),
+                "new_data_categories": categories,
+                "retraining_behavior": "Fine-tuning existing model structure - class mappings will be preserved"
+            } if existing_classes else {
+                "model_has_existing_classes": False,
+                "retraining_behavior": "No existing model found - new model will be created"
+            },
             "ready_for_training": total_files > 0 and len(categories) > 0,
             "recommendations": [
                 "Upload at least 10 images per category for best results",
                 "Ensure images are high quality and well-lit",
-                "Use descriptive category names that match food types",
-                "Consider balancing the number of images across categories"
+                "New training data will fine-tune the existing model without changing class structure",
+                "Only upload images for classes that already exist in the model" if existing_classes else "Organize images by food category"
             ] if total_files > 0 else [
                 "No training data uploaded yet",
                 "Use POST /upload/training-data with category parameter to upload images",
-                "Organize images by food category (e.g., 'Bread', 'Dessert', etc.)"
+                "Images should match existing model classes to preserve structure" if existing_classes else "Organize images by food category (e.g., 'Bread', 'Dessert', etc.)"
             ]
         }
         
@@ -1035,6 +1092,30 @@ async def training_status(db: Session = Depends(get_db)):
     }
 
 
+@app.get("/training/status/{task_id}")
+async def get_retraining_task_status(task_id: str, db: Session = Depends(get_db)):
+    """Get status of a specific retraining task"""
+    try:
+        task = RetrainingCRUD.get_retraining_task(db, task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Retraining task not found")
+        
+        return {
+            "task_id": task.task_id,
+            "status": task.status,
+            "started_at": task.started_at,
+            "completed_at": task.completed_at,
+            "error_message": task.error_message,
+            "dataset_id": task.dataset_id,
+            "new_model_id": task.new_model_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting retraining task status: {e}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving task status: {str(e)}")
+
+
 @app.get("/stats", response_model=SystemStats)
 async def get_stats(db: Session = Depends(get_db)):
     """Get API usage statistics"""
@@ -1057,38 +1138,6 @@ async def get_metrics():
     }
     
     return metrics
-
-
-# @app.get("/metrics", response_model=SystemMetricsResponse)
-# async def get_metrics():
-#     """
-#     Get model metrics and system status
-#     """
-#     uptime = datetime.now() - model_metrics["uptime_start"]
-    
-#     # Calculate success rate
-#     total_preds = max(model_metrics["total_predictions"], 1)
-#     success_rate = (model_metrics["successful_predictions"] / total_preds) * 100
-    
-#     # Keep only recent errors (last 10)
-#     recent_errors = model_metrics["errors"][-10:] if model_metrics["errors"] else []
-    
-#     metrics = {
-#         **model_metrics,
-#         "uptime_hours": round(uptime.total_seconds() / 3600, 2),
-#         "uptime_formatted": str(uptime).split('.')[0],  # Remove microseconds
-#         "success_rate": round(success_rate, 2),
-#         "failure_rate": round(100 - success_rate, 2),
-#         "recent_predictions": prediction_logs[-10:] if prediction_logs else [],
-#         "recent_errors": recent_errors,
-#         "predictor_loaded": predictor is not None,
-#         "current_time": datetime.now().isoformat()
-#     }
-    
-#     # Remove the full errors list to avoid large responses
-#     metrics_clean = {k: v for k, v in metrics.items() if k != "errors"}
-    
-#     return metrics_clean
 
 
 @app.get("/analytics", response_model=AnalyticsResponse)
@@ -1156,6 +1205,8 @@ async def list_model_versions():
                 current_version = "latest"
             elif '_v' in model_path:
                 current_version = model_path.split('_v')[-1].split('.')[0]
+            elif 'final' in model_path:
+                current_version = "original"
         
         return {
             "available_models": available_models,
@@ -1173,7 +1224,7 @@ async def switch_model_version(version: str):
     """Switch to a specific model version"""
     try:
         # Validate version
-        if version not in ['latest'] and not version.isdigit():
+        if version not in ['latest', 'original', 'final'] and not version.isdigit():
             raise HTTPException(status_code=400, detail="Invalid version format")
         
         # Load the specified model version
@@ -1209,8 +1260,10 @@ async def get_current_model_info():
             version = "latest"
         elif '_v' in model_path:
             version = model_path.split('_v')[-1].split('.')[0]
-        else:
+        elif 'final' in model_path:
             version = "original"
+        else:
+            version = "unknown"
         
         # Get model file stats
         model_size_mb = 0

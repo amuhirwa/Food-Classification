@@ -641,6 +641,10 @@ body::before {
   background: var(--success-gradient);
 }
 
+.version-badge.original {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
 .latest-indicator {
   background: var(--warning-gradient);
   color: white;
@@ -650,8 +654,21 @@ body::before {
   margin-left: 0.5rem;
 }
 
+.original-indicator {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.3rem;
+  font-size: 0.7rem;
+  margin-left: 0.5rem;
+}
+
 .latest-model {
   background: rgba(79, 172, 254, 0.1);
+}
+
+.original-model {
+  background: rgba(102, 126, 234, 0.1);
 }
 
 .current-model-card {
@@ -805,4 +822,82 @@ body::before {
 .fab:hover {
   transform: scale(1.1) rotate(180deg);
   box-shadow: 0 25px 50px rgba(102, 126, 234, 0.3);
+}
+
+/* Dataset Visualization Styles */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.metric-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  transition: var(--transition);
+}
+
+.metric-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-light);
+}
+
+.metric-card h4 {
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.recommendations-section {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.recommendations-section h4 {
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.recommendation-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.recommendation-item i {
+  color: #4facfe;
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+}
+
+.text-success {
+  color: #4facfe !important;
+}
+
+.text-error {
+  color: #f5576c !important;
+}
+
+.text-warning {
+  color: #fee140 !important;
 }

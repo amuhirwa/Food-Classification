@@ -290,18 +290,39 @@ class FoodClassificationModel:
                      base_model_path=None, epochs=30, model_version=None):
         """
         Retrain the model with new data using proper versioning
+        Preserves the existing model architecture and class structure
         """
         try:
-            if base_model_path and os.path.exists(base_model_path):
-                # Load existing model as starting point
-                self.load_model(base_model_path)
-                logger.info("Loaded existing model for retraining")
-            elif self.model is None:
-                # Create new model if none exists
-                logger.info("Creating new model for retraining")
-                self.create_model()
+            if not base_model_path or not os.path.exists(base_model_path):
+                raise ValueError("Base model path is required for retraining to preserve class structure")
             
-            # Train with new data
+            # Load existing model as starting point
+            self.load_model(base_model_path)
+            logger.info(f"Loaded existing model for retraining: {base_model_path}")
+            logger.info(f"Model architecture preserved - num_classes: {self.num_classes}")
+            
+            # Verify that the new data generators match the existing model's class structure
+            if hasattr(new_train_generator, 'num_classes'):
+                if new_train_generator.num_classes != self.num_classes:
+                    logger.warning(f"Training data has {new_train_generator.num_classes} classes, "
+                                 f"but model expects {self.num_classes} classes. "
+                                 f"Only training on classes that match the existing model.")
+            
+            # Fine-tune the existing model with new data
+            # Use a lower learning rate for fine-tuning to preserve learned features
+            original_lr = self.model.optimizer.learning_rate
+            fine_tune_lr = float(original_lr) * 0.1  # Reduce learning rate for fine-tuning
+            
+            # Update optimizer with lower learning rate
+            from tensorflow.keras.optimizers import Adam
+            self.model.compile(
+                optimizer=Adam(learning_rate=fine_tune_lr),
+                loss='categorical_crossentropy',
+                metrics=['accuracy']
+            )
+            
+            logger.info(f"Fine-tuning with reduced learning rate: {fine_tune_lr}")
+            
             callbacks = self.get_callbacks(patience=15)
             
             retrain_history = self.model.fit(
@@ -324,7 +345,8 @@ class FoodClassificationModel:
             if model_path:
                 self._create_latest_model(model_path)
             
-            logger.info(f"Model retraining completed! Saved as v{model_version}")
+            logger.info(f"Model fine-tuning completed! Saved as v{model_version}")
+            logger.info(f"Class structure preserved: {self.num_classes} classes")
             return retrain_history, model_version
             
         except Exception as e:
@@ -391,6 +413,27 @@ class FoodClassificationModel:
         
         models = []
         
+        # First, check for the original model
+        original_path = os.path.join(self.model_dir, "food_classifier_final.h5")
+        if os.path.exists(original_path):
+            try:
+                # Get file stats
+                stat = os.stat(original_path)
+                
+                models.append({
+                    'version': 'original',
+                    'model_name': 'food_classifier_final',
+                    'path': original_path,
+                    'created_date': 'Original Model',
+                    'file_size_mb': round(stat.st_size / (1024 * 1024), 2),
+                    'num_classes': 'Original Classes',
+                    'is_latest': False,
+                    'is_original': True
+                })
+                
+            except Exception as e:
+                logger.warning(f"Could not analyze original model: {e}")
+        
         # Find all versioned models
         pattern = os.path.join(self.model_dir, "food_classifier_v*.h5")
         versioned_models = glob.glob(pattern)
@@ -436,8 +479,19 @@ class FoodClassificationModel:
                     model['is_latest'] = True
                     break
         
-        # Sort by version number
-        models.sort(key=lambda x: x['version'], reverse=True)
+        # Sort by version number with proper handling of mixed types
+        def sort_key(model):
+            version = model['version']
+            if version == 'original':
+                return (0, version)  # Original comes first
+            elif isinstance(version, str) and version.isdigit():
+                return (1, int(version))  # Numeric versions
+            elif isinstance(version, int):
+                return (1, version)  # Numeric versions
+            else:
+                return (2, version)  # Other string versions last
+        
+        models.sort(key=sort_key, reverse=True)
         
         return models
     

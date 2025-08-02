@@ -3,7 +3,7 @@ FROM python:3.9-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies (including libGL for OpenCV)
+# Install system dependencies (like libGL)
 RUN apt-get update && apt-get install -y \
     libgl1 \
     libglib2.0-0 \
@@ -13,15 +13,17 @@ RUN apt-get update && apt-get install -y \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
+# Pre-copy only requirements.txt to cache dependencies
 COPY requirements.txt .
+
+# Install Python packages (only re-runs if requirements.txt changes)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Now copy app code — changes here won't affect the pip install cache
 COPY src/ ./src/
 COPY api/ ./api/
 COPY models/ ./models/
-# COPY ui/ ./ui/
+COPY ui/ ./ui/
 
 # Create necessary directories
 RUN mkdir -p uploads retrain_data logs
@@ -39,5 +41,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run the application
+# Run the app
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

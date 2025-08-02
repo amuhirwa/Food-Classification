@@ -4,6 +4,7 @@ class FoodClassificationDashboard {
     this.currentTab = "prediction";
     this.batchFiles = [];
     this.charts = {};
+    // this.API_BASE = "https://food-classifier-api.redbeach-cd51ecd1.southafricanorth.azurecontainerapps.io";
     this.API_BASE = "http://127.0.0.1:8000";
 
     // Initialize dashboard
@@ -328,22 +329,204 @@ class FoodClassificationDashboard {
       const response = await fetch(`${this.API_BASE}/visualizations`);
       const data = await response.json();
 
-      if (data.message) {
-        document.getElementById("visualization-tab").innerHTML = `
-                    <div class="card">
-                        <div class="alert alert-info"><i class="fas fa-info-circle"></i> ${data.message}</div>
-                    </div>
-                `;
+      if (data.error) {
+        console.error("Visualization error:", data.error);
+        this.showAlert("Failed to load visualizations", "error");
         return;
       }
 
-      // Create charts
-      this.createClassDistributionChart(data.class_distribution);
-      this.createConfidenceChart(data.confidence_statistics);
-      this.createTimeChart(data.predictions_by_hour);
+      // Create charts based on new data structure
+      this.createDatasetOverviewCharts(data);
+      this.updatePerformanceMetrics(data);
     } catch (error) {
       console.error("Error loading visualizations:", error);
     }
+  }
+
+  // Create dataset overview charts
+  createDatasetOverviewCharts(data) {
+    // Original dataset class distribution
+    if (data.dataset_overview?.original_data?.class_distribution) {
+      this.createClassDistributionChart(
+        data.dataset_overview.original_data.class_distribution,
+        "Original Dataset"
+      );
+    }
+
+    // Retrain dataset class distribution
+    if (data.dataset_overview?.retrain_data?.class_distribution) {
+      this.createRetrainDataChart(
+        data.dataset_overview.retrain_data.class_distribution
+      );
+    }
+
+    // Prediction confidence stats if available
+    if (data.prediction_insights?.confidence_stats) {
+      this.createConfidenceChart(data.prediction_insights.confidence_stats);
+    }
+
+    // Dataset recommendations
+    this.displayRecommendations(data.recommendations || []);
+  }
+
+  // Update performance metrics display
+  updatePerformanceMetrics(data) {
+    const container = document.getElementById("performance-metrics");
+    const summary = data.summary || {};
+    const originalData = data.dataset_overview?.original_data || {};
+    const retrainData = data.dataset_overview?.retrain_data || {};
+
+    container.innerHTML = `
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <h4><i class="fas fa-database"></i> Original Dataset</h4>
+          <div class="metric">
+            <span class="metric-label">Total Images:</span>
+            <span class="metric-value">${originalData.total_images || 0}</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Classes:</span>
+            <span class="metric-value">${originalData.total_classes || 0}</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Avg per Class:</span>
+            <span class="metric-value">${
+              originalData.average_images_per_class || 0
+            }</span>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <h4><i class="fas fa-upload"></i> Retrain Dataset</h4>
+          <div class="metric">
+            <span class="metric-label">Total Images:</span>
+            <span class="metric-value">${retrainData.total_images || 0}</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Classes:</span>
+            <span class="metric-value">${retrainData.total_classes || 0}</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Ready for Training:</span>
+            <span class="metric-value ${
+              retrainData.ready_for_training ? "text-success" : "text-error"
+            }">
+              ${retrainData.ready_for_training ? "Yes" : "No"}
+            </span>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <h4><i class="fas fa-chart-line"></i> Model Performance</h4>
+          <div class="metric">
+            <span class="metric-label">Performance:</span>
+            <span class="metric-value ${
+              summary.model_performance_indicator === "Good"
+                ? "text-success"
+                : "text-warning"
+            }">
+              ${summary.model_performance_indicator || "Unknown"}
+            </span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Total Predictions:</span>
+            <span class="metric-value">${
+              summary.total_predictions_made || 0
+            }</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="recommendations-section">
+        <h4><i class="fas fa-lightbulb"></i> Recommendations</h4>
+        <div id="recommendations-list"></div>
+      </div>
+    `;
+  }
+
+  // Display recommendations
+  displayRecommendations(recommendations) {
+    const container = document.getElementById("recommendations-list");
+    if (!recommendations || recommendations.length === 0) {
+      container.innerHTML =
+        '<p style="color: rgba(255,255,255,0.6);">No specific recommendations at this time.</p>';
+      return;
+    }
+
+    container.innerHTML = recommendations
+      .map(
+        (rec) => `
+        <div class="recommendation-item">
+          <i class="fas fa-info-circle"></i>
+          <span>${rec}</span>
+        </div>
+      `
+      )
+      .join("");
+  }
+
+  // Create retrain data chart
+  createRetrainDataChart(data) {
+    const ctx = document.getElementById("confidence-chart").getContext("2d");
+
+    if (this.charts.retrainData) {
+      this.charts.retrainData.destroy();
+    }
+
+    this.charts.retrainData = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: Object.keys(data),
+        datasets: [
+          {
+            label: "Retrain Data Distribution",
+            data: Object.values(data),
+            backgroundColor: [
+              "rgba(102, 126, 234, 0.8)",
+              "rgba(118, 75, 162, 0.8)",
+              "rgba(240, 147, 251, 0.8)",
+              "rgba(245, 87, 108, 0.8)",
+              "rgba(79, 172, 254, 0.8)",
+              "rgba(0, 242, 254, 0.8)",
+            ],
+            borderColor: [
+              "#667eea",
+              "#764ba2",
+              "#f093fb",
+              "#f5576c",
+              "#4facfe",
+              "#00f2fe",
+            ],
+            borderWidth: 2,
+            borderRadius: 8,
+            borderSkipped: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            labels: { color: "rgba(255,255,255,0.8)" },
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { color: "rgba(255,255,255,0.8)" },
+            grid: { color: "rgba(255,255,255,0.1)" },
+          },
+          x: {
+            ticks: {
+              color: "rgba(255,255,255,0.8)",
+              maxRotation: 45,
+            },
+            grid: { display: false },
+          },
+        },
+      },
+    });
   }
 
   // Create class distribution chart
@@ -512,10 +695,13 @@ class FoodClassificationDashboard {
     this.showLoading("training-upload-result");
 
     try {
-      const response = await fetch(`${this.API_BASE}/upload/training-data-zip`, {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetch(
+        `${this.API_BASE}/upload/training-data-zip`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       const result = await response.json();
 
@@ -590,7 +776,9 @@ class FoodClassificationDashboard {
   // Poll retraining status
   async pollRetrainingStatus(taskId) {
     try {
-      const response = await fetch(`${this.API_BASE}/training/status/${taskId}`);
+      const response = await fetch(
+        `${this.API_BASE}/training/status/${taskId}`
+      );
       const status = await response.json();
 
       document.getElementById("retraining-status").innerHTML = `

@@ -1,0 +1,12 @@
+{
+    "model_name": "food_classifier_v2",
+    "created_date": "2025-08-02T21:54:11.391626",
+    "num_classes": 1,
+    "input_shape": [
+        224,
+        224,
+        3
+    ],
+    "model_path": "models\\food_classifier_v2.h5",
+    "savedmodel_path": "models\\food_classifier_v2_savedmodel"
+}

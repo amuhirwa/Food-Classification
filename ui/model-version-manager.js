@@ -44,10 +44,14 @@ class ModelVersionManager {
       "current-model-version"
     );
     if (currentModelDisplay) {
-      currentModelDisplay.textContent = `v${this.currentModelVersion}`;
+      currentModelDisplay.textContent = `${
+        this.currentModelVersion === "original"
+          ? "Original"
+          : "v" + this.currentModelVersion
+      }`;
     }
 
-    // Update model selector dropdown
+    // Update model selector dropdown (for switching active model)
     const modelSelector = document.getElementById("model-version-selector");
     if (modelSelector) {
       modelSelector.innerHTML = "";
@@ -63,9 +67,55 @@ class ModelVersionManager {
       this.availableModels.forEach((model) => {
         const option = document.createElement("option");
         option.value = model.version;
-        option.textContent = `v${model.version} (${model.file_size_mb}MB)`;
+
+        if (model.version === "original") {
+          option.textContent = `Original Model (${model.file_size_mb}MB)`;
+        } else {
+          option.textContent = `v${model.version} (${model.file_size_mb}MB)`;
+        }
+
         if (this.currentModelVersion == model.version) option.selected = true;
         modelSelector.appendChild(option);
+      });
+    }
+
+    // Update prediction model selector dropdown
+    this.updatePredictionModelSelector();
+  }
+
+  // Update prediction model selector
+  updatePredictionModelSelector() {
+    const predictionSelector = document.getElementById(
+      "prediction-model-selector"
+    );
+    if (predictionSelector) {
+      predictionSelector.innerHTML = "";
+
+      // Add current active model option
+      const currentOption = document.createElement("option");
+      currentOption.value = "current";
+      currentOption.textContent = "Current Active Model";
+      currentOption.selected = true;
+      predictionSelector.appendChild(currentOption);
+
+      // Add latest option
+      const latestOption = document.createElement("option");
+      latestOption.value = "latest";
+      latestOption.textContent = "Latest Model";
+      predictionSelector.appendChild(latestOption);
+
+      // Add all available models
+      this.availableModels.forEach((model) => {
+        const option = document.createElement("option");
+        option.value = model.version;
+
+        if (model.version === "original") {
+          option.textContent = `Original Model`;
+        } else {
+          option.textContent = `v${model.version}`;
+        }
+
+        predictionSelector.appendChild(option);
       });
     }
 
@@ -82,21 +132,41 @@ class ModelVersionManager {
 
     this.availableModels.forEach((model) => {
       const row = document.createElement("tr");
-      row.className = model.is_latest ? "latest-model" : "";
+      row.className = model.is_latest
+        ? "latest-model"
+        : model.is_original
+        ? "original-model"
+        : "";
+
+      const versionDisplay =
+        model.version === "original" ? "Original" : model.version;
+      const createdDate =
+        model.created_date === "Original Model"
+          ? "Original Model"
+          : new Date(model.created_date).toLocaleDateString();
 
       row.innerHTML = `
                 <td>
                     <span class="version-badge ${
-                      model.is_latest ? "latest" : ""
-                    }">${model.version}</span>
+                      model.is_latest
+                        ? "latest"
+                        : model.is_original
+                        ? "original"
+                        : ""
+                    }">${versionDisplay}</span>
                     ${
                       model.is_latest
                         ? '<span class="latest-indicator">LATEST</span>'
                         : ""
                     }
+                    ${
+                      model.is_original
+                        ? '<span class="original-indicator">ORIGINAL</span>'
+                        : ""
+                    }
                 </td>
                 <td>${model.file_size_mb} MB</td>
-                <td>${new Date(model.created_date).toLocaleDateString()}</td>
+                <td>${createdDate}</td>
                 <td>${model.num_classes}</td>
                 <td>
                     <button 

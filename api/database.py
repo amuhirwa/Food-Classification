@@ -10,7 +10,7 @@ import json
 from datetime import datetime
 import logging
 
-from models import Base, UploadedDataset, ModelVersion, Prediction, RetrainingTask, SystemMetric
+from .models import Base, UploadedDataset, ModelVersion, Prediction, RetrainingTask, SystemMetric
 
 logger = logging.getLogger(__name__)
 

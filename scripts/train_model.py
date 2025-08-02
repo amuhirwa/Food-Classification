@@ -98,7 +98,7 @@ def main():
         logger.info(f"Model saved successfully as {model_name}")
         
         # Also save as final model for deployment
-        final_model_name = "food_classifier_final"
+        final_model_name = "food_classifier_v_original"
         food_model.save_model(final_model_name)
         logger.info(f"Model also saved as {final_model_name} for deployment")
     else:
