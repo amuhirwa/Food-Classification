@@ -145,6 +145,17 @@ class ModelVersionManager {
           ? "Original Model"
           : new Date(model.created_date).toLocaleDateString();
 
+      // Format performance metrics
+      const formatMetric = (value) => {
+        if (value === "Unknown" || value === undefined || value === null) {
+          return "N/A";
+        }
+        if (typeof value === "number") {
+          return (value * 100).toFixed(1) + "%";
+        }
+        return value;
+      };
+
       row.innerHTML = `
                 <td>
                     <span class="version-badge ${
@@ -168,6 +179,8 @@ class ModelVersionManager {
                 <td>${model.file_size_mb} MB</td>
                 <td>${createdDate}</td>
                 <td>${model.num_classes}</td>
+                <td class="metric-cell">${formatMetric(model.accuracy)}</td>
+                <td class="metric-cell">${formatMetric(model.f1_score)}</td>
                 <td>
                     <button 
                         class="btn btn-sm ${

@@ -540,6 +540,14 @@ class FoodClassificationModel:
                 # Get file stats
                 stat = os.stat(original_path)
                 
+                # Check for original model metadata
+                original_metadata_path = os.path.join(self.model_dir, "food_classifier_final_metadata.json")
+                performance_metrics = {}
+                if os.path.exists(original_metadata_path):
+                    with open(original_metadata_path, 'r') as f:
+                        original_metadata = json.load(f)
+                        performance_metrics = original_metadata.get('performance_metrics', {})
+                
                 models.append({
                     'version': 'original',
                     'model_name': 'food_classifier_final',
@@ -547,6 +555,9 @@ class FoodClassificationModel:
                     'created_date': 'Original Model',
                     'file_size_mb': round(stat.st_size / (1024 * 1024), 2),
                     'num_classes': 'Original Classes',
+                    'accuracy': performance_metrics.get('val_accuracy', 'Unknown'),
+                    'f1_score': performance_metrics.get('f1_score_weighted', 'Unknown'),
+                    'train_accuracy': performance_metrics.get('train_accuracy', 'Unknown'),
                     'is_latest': False,
                     'is_original': True
                 })
@@ -574,6 +585,9 @@ class FoodClassificationModel:
                 # Get file stats
                 stat = os.stat(model_path)
                 
+                # Extract performance metrics from metadata
+                performance_metrics = metadata.get('performance_metrics', {})
+                
                 models.append({
                     'version': version,
                     'model_name': f"food_classifier_v{version}",
@@ -581,6 +595,9 @@ class FoodClassificationModel:
                     'created_date': metadata.get('created_date', 'Unknown'),
                     'file_size_mb': round(stat.st_size / (1024 * 1024), 2),
                     'num_classes': metadata.get('num_classes', 'Unknown'),
+                    'accuracy': performance_metrics.get('val_accuracy', 'Unknown'),
+                    'f1_score': performance_metrics.get('f1_score_weighted', 'Unknown'),
+                    'train_accuracy': performance_metrics.get('train_accuracy', 'Unknown'),
                     'is_latest': False
                 })
                 

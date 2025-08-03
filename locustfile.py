@@ -673,24 +673,6 @@ class EndToEndMLOpsUser(HttpUser):
         print(f"❌ Retraining failed: {response.status_code}")
         return None
     
-    def monitor_training_progress(self, task_id):
-        """Monitor training progress"""
-        if not task_id:
-            return
-        
-        # Check training status
-        response = self.client.get(f"/training/status/{task_id}")
-        if response.status_code == 200:
-            try:
-                status = response.json()
-                current_status = status.get('status', 'unknown')
-                print(f"📈 Training status: {current_status}")
-            except:
-                pass
-        
-        # Also check general training status
-        self.client.get("/training/status")
-    
     def test_model_after_training(self):
         """Test model after potential retraining"""
         # Create a test image
@@ -844,8 +826,8 @@ locust -f locustfile.py --host=http://localhost:8000 --users 50 --spawn-rate 5 -
 # Step load test
 locust -f locustfile.py --host=http://localhost:8000 StepLoadShape
 
-# Production-like testing (replace with your actual URL)
-locust -f locustfile.py --host=https://your-api-domain.com
+# Production-like testing
+locust -f locustfile.py --host=https://food-classifier-api.redbeach-cd51ecd1.southafricanorth.azurecontainerapps.io
 
 # Quick health check test
 locust -f locustfile.py --host=http://localhost:8000 --users 10 --spawn-rate 2 --run-time 60s --headless

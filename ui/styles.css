@@ -826,6 +826,18 @@ body::before {
   font-size: 1.1rem;
 }
 
+/* Metric cells in model versions table */
+.metric-cell {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 1rem !important;
+}
+
+.metric-cell:hover {
+  color: #4facfe;
+  transition: color 0.3s ease;
+}
+
 .model-selector-container {
   margin: 1rem 0;
   padding: 1rem;
