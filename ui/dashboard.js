@@ -4,8 +4,7 @@ class FoodClassificationDashboard {
     this.currentTab = "prediction";
     this.batchFiles = [];
     this.charts = {};
-    // this.API_BASE =
-      // "https://food-classifier-api.redbeach-cd51ecd1.southafricanorth.azurecontainerapps.io";
+    // this.API_BASE = "https://food-classifier-api.redbeach-cd51ecd1.southafricanorth.azurecontainerapps.io";
     this.API_BASE = "http://127.0.0.1:8000";
 
     // Initialize dashboard
@@ -353,45 +352,10 @@ class FoodClassificationDashboard {
 
   // Create dataset overview charts
   createDatasetOverviewCharts(data) {
-    const originalData = {
-      total_classes: 11,
-      total_images: 3347,
-      class_distribution: {
-        Bread: 368,
-        "Dairy product": 148,
-        Dessert: 500,
-        Egg: 335,
-        "Fried food": 287,
-        Meat: 432,
-        "Noodles-Pasta": 147,
-        Rice: 96,
-        Seafood: 303,
-        Soup: 500,
-        "Vegetable-Fruit": 231,
-      },
-      classes: [
-        "Bread",
-        "Dairy product",
-        "Dessert",
-        "Egg",
-        "Fried food",
-        "Meat",
-        "Noodles-Pasta",
-        "Rice",
-        "Seafood",
-        "Soup",
-        "Vegetable-Fruit",
-      ],
-      average_images_per_class: 304.27,
-      min_images_per_class: 96,
-      max_images_per_class: 500,
-      class_imbalance_ratio: 5.21,
-    };
-
     // Original dataset class distribution
-    if (originalData.class_distribution) {
+    if (data.dataset_overview?.original_data?.class_distribution) {
       this.createClassDistributionChart(
-        originalData.class_distribution,
+        data.dataset_overview.original_data.class_distribution,
         "Original Dataset"
       );
     }
@@ -421,40 +385,7 @@ class FoodClassificationDashboard {
   updatePerformanceMetrics(data) {
     const container = document.getElementById("performance-metrics");
     const summary = data.summary || {};
-    const originalData = {
-      total_classes: 11,
-      total_images: 3347,
-      class_distribution: {
-        Bread: 368,
-        "Dairy product": 148,
-        Dessert: 500,
-        Egg: 335,
-        "Fried food": 287,
-        Meat: 432,
-        "Noodles-Pasta": 147,
-        Rice: 96,
-        Seafood: 303,
-        Soup: 500,
-        "Vegetable-Fruit": 231,
-      },
-      classes: [
-        "Bread",
-        "Dairy product",
-        "Dessert",
-        "Egg",
-        "Fried food",
-        "Meat",
-        "Noodles-Pasta",
-        "Rice",
-        "Seafood",
-        "Soup",
-        "Vegetable-Fruit",
-      ],
-      average_images_per_class: 304.27,
-      min_images_per_class: 96,
-      max_images_per_class: 500,
-      class_imbalance_ratio: 5.21,
-    };
+    const originalData = data.dataset_overview?.original_data || {};
     const retrainData = data.dataset_overview?.retrain_data || {};
 
     container.innerHTML = `

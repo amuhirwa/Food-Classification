@@ -348,28 +348,28 @@ class FoodClassificationModel:
             ]
             
             # Fine-tune the model
-            logger.info(f"Starting fine-tuning for {epochs} epochs...")
+            logger.info(f"Starting fine-tuning for {2} epochs...")
             history = self.model.fit(
                 new_train_generator,
-                epochs=epochs,
+                epochs=2,
                 validation_data=new_val_generator,
                 callbacks=callbacks,
                 verbose=1
             )
             
             # Get the next version number
-            next_version = self.get_next_version()
+            next_version = self._get_next_version()
             
             # Save the fine-tuned model
             model_filename = f"food_classifier_v{next_version}.h5"
             model_path = os.path.join(self.model_dir, model_filename)
             
-            self.model.save(model_path)
+            self.save_model(model_filename.replace('.h5', ''), include_metadata=True)
             logger.info(f"Fine-tuned model saved as: {model_filename}")
             
             # Also save as latest
             latest_path = os.path.join(self.model_dir, "food_classifier_latest.h5")
-            self.model.save(latest_path)
+            self.save_model("food_classifier_latest")
             logger.info("Model also saved as latest version")
             
             return history, next_version

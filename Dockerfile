@@ -24,7 +24,6 @@ COPY src/ ./src/
 COPY api/ ./api/
 COPY models/ ./models/
 COPY ui/ ./ui/
-COPY data/ ./data/
 
 # Create necessary directories
 RUN mkdir -p uploads retrain_data logs
