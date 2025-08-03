@@ -4,7 +4,7 @@ A complete end-to-end Machine Learning Operations (MLOps) pipeline for food imag
 
 ### Demo Video
 
-Demo Video Link:
+Demo Video Link: https://youtu.be/lsWurABtWV8
 
 ### Deployed Links:
 
@@ -210,7 +210,7 @@ The automated retraining system:
 3. **Preprocessing**: Applies same preprocessing pipeline
 4. **Model Training**: Retrains with updated dataset
 5. **Validation**: Evaluates performance on validation set
-6. **Deployment**: Hot-swaps model if performance improves
+6. **Deployment**: Hot-swaps model to latest
 7. **Monitoring**: Tracks retraining metrics and status
 
 ### Retraining Triggers:
@@ -222,15 +222,36 @@ The automated retraining system:
 
 ## 📊 Load Testing with Locust
 
-Simulate production load and measure performance:
+We used [Locust](https://locust.io) for performance testing to simulate user traffic and validate the robustness of the API under load.
+
+### 🔧 Setup
+
+Install Locust and run the load test:
 
 ```bash
-# Install Locust
 pip install locust
-
-# Run load test
 locust -f locustfile.py --host=http://localhost:8000
 ```
+
+Then open [http://localhost:8089](http://localhost:8089) in your browser to access the Locust dashboard.
+
+### 📈 Locust Dashboard
+
+#### Request Rate, Response Times, and User Load Over Time
+
+![Locust Charts](./assets/locust_charts.png)
+
+#### Endpoint-wise Performance Statistics
+
+![Locust Stats Table](./assets/locust_stats.png)
+
+### ✅ Results Summary
+
+* **Max Requests/sec:** \~14 RPS
+* **Concurrent Users:** 50+
+* **Response Time (95th percentile):** Up to \~30s for large payloads
+* **Failures:** 0 observed
+* **Endpoints Tested:** Health check, prediction (single and batch), model info, retraining, metrics
 
 ### Load Test Results:
 
@@ -267,8 +288,6 @@ az container create --resource-group myResourceGroup --name food-classifier --im
 ## 🛡️ Security & Privacy
 
 - **Input Validation**: Strict file type and size validation
-- **Rate Limiting**: API rate limiting to prevent abuse
-- **Data Privacy**: No permanent storage of uploaded images
 - **Model Security**: Model versioning and rollback capabilities
 
 
@@ -277,7 +296,7 @@ az container create --resource-group myResourceGroup --name food-classifier --im
 Trained models include:
 
 - **Model Weights**: `food_classifier_final.h5`
-- **Metadata**: Model architecture, training parameters
+- **Metadata**: Model architecture, training parameters, performance metrics
 - **Class Mappings**: Label encodings and class names
 - **Training History**: Loss and accuracy curves
 - **Performance Metrics**: Detailed evaluation results
@@ -344,7 +363,7 @@ curl http://localhost:8000/metrics
 - **Cold Start**: <3 seconds
 - **Warm Prediction**: <200ms
 - **Memory Usage**: ~2GB with model loaded
-- **Model Size**: ~50MB (optimized)
+- **Model Size**: ~18MB
 
 ## 🤝 Contributing
 
@@ -357,9 +376,7 @@ curl http://localhost:8000/metrics
 ## 🙏 Acknowledgments
 
 - Pre-trained models from TensorFlow/Keras
-- Food dataset from [dataset-source]
-- MLOps best practices from [references]
-- UI components inspired by modern web frameworks
+- Food dataset from [\[dataset-source\]](https://www.kaggle.com/datasets/trolukovich/food11-image-dataset/data)
 
 ---
 
