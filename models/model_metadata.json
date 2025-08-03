@@ -1,0 +1,61 @@
+{
+    "model_name": "Food Classification CNN",
+    "created_date": "2025-08-03T09:53:41.532022",
+    "classes": [
+        "Bread",
+        "Dairy product",
+        "Dessert",
+        "Egg",
+        "Fried food",
+        "Meat",
+        "Noodles-Pasta",
+        "Rice",
+        "Seafood",
+        "Soup",
+        "Vegetable-Fruit"
+    ],
+    "class_to_idx": {
+        "Bread": 0,
+        "Dairy product": 1,
+        "Dessert": 2,
+        "Egg": 3,
+        "Fried food": 4,
+        "Meat": 5,
+        "Noodles-Pasta": 6,
+        "Rice": 7,
+        "Seafood": 8,
+        "Soup": 9,
+        "Vegetable-Fruit": 10
+    },
+    "idx_to_class": {
+        "0": "Bread",
+        "1": "Dairy product",
+        "2": "Dessert",
+        "3": "Egg",
+        "4": "Fried food",
+        "5": "Meat",
+        "6": "Noodles-Pasta",
+        "7": "Rice",
+        "8": "Seafood",
+        "9": "Soup",
+        "10": "Vegetable-Fruit"
+    },
+    "num_classes": 11,
+    "input_shape": [
+        224,
+        224,
+        3
+    ],
+    "metrics": {
+        "accuracy": 0.8318318318318318,
+        "precision": 0.8343082867948101,
+        "recall": 0.8318318318318318,
+        "f1_score": 0.8300429397488334
+    },
+    "training_params": {
+        "epochs": 20,
+        "batch_size": 32,
+        "validation_split": 0.2,
+        "base_model": "MobileNetV2"
+    }
+}

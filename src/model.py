@@ -491,8 +491,7 @@ class FoodClassificationModel:
             else:
                 return (2, version)  # Other string versions last
         
-        models.sort(key=sort_key, reverse=True)
-        
+        models.sort(key=sort_key, reverse=True)        
         return models
     
     def load_model_by_version(self, version=None):
