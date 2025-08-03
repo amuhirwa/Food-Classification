@@ -45,16 +45,29 @@ class FoodDataPreprocessor:
     
     def create_data_generators(self, data_dir, validation_split=0.2, augment=True, preserve_class_mappings=False):
         """
-        Create training and validation data generators
-        
-        Args:
-            data_dir: Directory containing training data
-            validation_split: Fraction of data to use for validation
-            augment: Whether to apply data augmentation
-            preserve_class_mappings: If True, preserve existing class mappings instead of updating from data
+        Create data generators with optional class mapping preservation
         """
+        try:
+            if preserve_class_mappings and hasattr(self, 'class_to_idx') and self.class_to_idx:
+                # Use existing class mappings - create custom generators
+                logger.info(f"Preserving existing class mappings: {len(self.class_to_idx)} classes")
+                return self._create_generators_with_fixed_classes(data_dir, validation_split, augment)
+            else:
+                # Auto-discover classes from directory
+                return self._create_generators_auto_discover(data_dir, validation_split, augment)
+                
+        except Exception as e:
+            logger.error(f"Error creating data generators: {e}")
+            return None, None
+
+    def _create_generators_with_fixed_classes(self, data_dir, validation_split, augment):
+        """
+        Create generators that respect existing class mappings
+        """
+        from tensorflow.keras.preprocessing.image import ImageDataGenerator
+        
+        # Data augmentation for training
         if augment:
-            # Data augmentation for training
             train_datagen = ImageDataGenerator(
                 rescale=1./255,
                 rotation_range=20,
@@ -67,25 +80,11 @@ class FoodDataPreprocessor:
                 validation_split=validation_split
             )
         else:
-            # No augmentation
-            train_datagen = ImageDataGenerator(
-                rescale=1./255,
-                validation_split=validation_split
-            )
+            train_datagen = ImageDataGenerator(rescale=1./255, validation_split=validation_split)
         
-        # Only rescaling for validation data
-        val_datagen = ImageDataGenerator(
-            rescale=1./255,
-            validation_split=validation_split
-        )
+        val_datagen = ImageDataGenerator(rescale=1./255, validation_split=validation_split)
         
-        # If preserving class mappings, create a custom classes list based on existing mappings
-        classes_list = None
-        if preserve_class_mappings and hasattr(self, 'classes') and self.classes:
-            classes_list = self.classes
-            logger.info(f"Preserving existing class mappings: {classes_list}")
-        
-        # Create data generators
+        # Create generators with fixed class indices
         train_generator = train_datagen.flow_from_directory(
             data_dir,
             target_size=self.img_size,
@@ -94,7 +93,7 @@ class FoodDataPreprocessor:
             subset='training',
             shuffle=True,
             seed=42,
-            classes=classes_list  # Use existing class order if preserving mappings
+            classes=list(self.class_to_idx.keys())  # Force specific class order
         )
         
         validation_generator = val_datagen.flow_from_directory(
@@ -105,24 +104,14 @@ class FoodDataPreprocessor:
             subset='validation',
             shuffle=False,
             seed=42,
-            classes=classes_list  # Use existing class order if preserving mappings
+            classes=list(self.class_to_idx.keys())  # Force specific class order
         )
         
-        # Update class mappings from generator only if not preserving existing ones
-        if not preserve_class_mappings:
-            self.class_to_idx = train_generator.class_indices
-            self.idx_to_class = {v: k for k, v in self.class_to_idx.items()}
-            self.classes = list(self.class_to_idx.keys())
-            logger.info(f"Updated class mappings from data: {self.classes}")
-        else:
-            logger.info(f"Preserved existing class mappings: {self.classes}")
-            # Verify that the generator's class indices match our preserved mappings
-            if train_generator.class_indices != self.class_to_idx:
-                logger.warning(f"Generator class indices {train_generator.class_indices} "
-                             f"differ from preserved mappings {self.class_to_idx}")
-        
-        logger.info(f"Training samples: {train_generator.samples}")
-        logger.info(f"Validation samples: {validation_generator.samples}")
+        # Verify the class mappings match
+        if train_generator.class_indices != self.class_to_idx:
+            logger.warning("Generator class indices don't match preserved mappings - this may cause issues")
+            logger.info(f"Expected: {self.class_to_idx}")
+            logger.info(f"Got: {train_generator.class_indices}")
         
         return train_generator, validation_generator
     

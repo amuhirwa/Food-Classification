@@ -243,42 +243,56 @@ class ModelVersionManager {
 
   // Update current model display with detailed info
   updateCurrentModelDisplay(modelInfo) {
-    const container = document.getElementById("current-model-info");
-    if (!container) return;
+    // Update both the system status current model info and models tab current model info
+    const containers = [
+      document.getElementById("current-model-info"),
+      document.getElementById("models-tab-current-model-info"),
+    ];
 
-    container.innerHTML = `
-            <div class="current-model-card">
-                <div class="model-version">
-                    <span class="version-label">Active Model:</span>
-                    <span class="version-value">v${modelInfo.version}</span>
-                    ${
-                      modelInfo.version === "latest"
-                        ? '<span class="latest-badge">LATEST</span>'
-                        : ""
-                    }
-                </div>
-                <div class="model-details">
-                    <div class="detail-item">
-                        <span class="detail-label">Classes:</span>
-                        <span class="detail-value">${
-                          modelInfo.num_classes
-                        }</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Size:</span>
-                        <span class="detail-value">${
-                          modelInfo.model_size_mb
-                        } MB</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Predictions:</span>
-                        <span class="detail-value">${
-                          modelInfo.predictions_made
-                        }</span>
-                    </div>
-                </div>
-            </div>
-        `;
+    const modelVersionDisplay =
+      modelInfo.version === "original" ? "Original" : `v${modelInfo.version}`;
+
+    const modelCard = `
+      <div class="current-model-card">
+        <div class="model-version">
+          <span class="version-label">Active Model:</span>
+          <span class="version-value">${modelVersionDisplay}</span>
+          ${
+            modelInfo.version === "latest"
+              ? '<span class="latest-badge">LATEST</span>'
+              : modelInfo.version === "original"
+              ? '<span class="original-badge">ORIGINAL</span>'
+              : ""
+          }
+        </div>
+        <div class="model-details">
+          <div class="detail-item">
+            <span class="detail-label">Classes:</span>
+            <span class="detail-value">${modelInfo.num_classes}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Size:</span>
+            <span class="detail-value">${modelInfo.model_size_mb} MB</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Predictions:</span>
+            <span class="detail-value">${modelInfo.predictions_made}</span>
+          </div>
+          <div class="detail-item" style="width: max-content; overflow: hidden; text-overflow: ellipsis;">
+            <span class="detail-label">Model Path:</span>
+            <span class="detail-value" title="${
+              modelInfo.model_path
+            }">${modelInfo.model_path.split("/").pop()}</span>
+          </div>
+        </div>
+      </div>
+    `;
+
+    containers.forEach((container) => {
+      if (container) {
+        container.innerHTML = modelCard;
+      }
+    });
   }
 
   // Add model version selector to prediction interface

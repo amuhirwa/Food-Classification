@@ -286,46 +286,70 @@ class FoodClassificationModel:
             logger.error(f"Error during fine-tuning: {str(e)}")
             return None
     
-    def retrain_model(self, new_train_generator, new_val_generator, 
-                     base_model_path=None, epochs=30, model_version=None):
+    def retrain_model(self, new_train_generator, new_val_generator, base_model_path, epochs=4):
         """
-        Retrain the model with new data using proper versioning
-        Preserves the existing model architecture and class structure
+        Retrain model with new data while preserving existing class structure
         """
         try:
-            if not base_model_path or not os.path.exists(base_model_path):
-                raise ValueError("Base model path is required for retraining to preserve class structure")
+            logger.info(f"Starting retraining from base model: {base_model_path}")
             
-            # Load existing model as starting point
-            self.load_model(base_model_path)
-            logger.info(f"Loaded existing model for retraining: {base_model_path}")
-            logger.info(f"Model architecture preserved - num_classes: {self.num_classes}")
+            # Load the existing model to preserve its architecture and weights
+            if not os.path.exists(base_model_path):
+                raise ValueError(f"Base model not found: {base_model_path}")
             
-            # Verify that the new data generators match the existing model's class structure
-            if hasattr(new_train_generator, 'num_classes'):
-                if new_train_generator.num_classes != self.num_classes:
-                    logger.warning(f"Training data has {new_train_generator.num_classes} classes, "
-                                 f"but model expects {self.num_classes} classes. "
-                                 f"Only training on classes that match the existing model.")
+            # Load the existing model
+            logger.info("Loading existing model...")
+            self.model = tf.keras.models.load_model(base_model_path)
             
-            # Fine-tune the existing model with new data
-            # Use a lower learning rate for fine-tuning to preserve learned features
-            original_lr = self.model.optimizer.learning_rate
-            fine_tune_lr = float(original_lr) * 0.1  # Reduce learning rate for fine-tuning
+            # Verify the model has the expected number of classes
+            expected_classes = self.num_classes
+            model_output_shape = self.model.output_shape[-1]
             
-            # Update optimizer with lower learning rate
-            from tensorflow.keras.optimizers import Adam
+            if model_output_shape != expected_classes:
+                raise ValueError(f"Model output shape {model_output_shape} doesn't match expected classes {expected_classes}")
+            
+            logger.info(f"Loaded model with {model_output_shape} classes - preserving architecture")
+            
+            # Verify the data generators have the correct number of classes
+            if new_train_generator.num_classes != expected_classes:
+                logger.warning(f"Train generator has {new_train_generator.num_classes} classes, but model expects {expected_classes}")
+                logger.info("This is expected - we're fine-tuning the existing model structure")
+            
+            # Set the model to trainable for fine-tuning
+            self.model.trainable = True
+            
+            # Use a lower learning rate for fine-tuning
+            fine_tune_lr = 0.0001
+            
+            # Recompile with lower learning rate for fine-tuning
             self.model.compile(
                 optimizer=Adam(learning_rate=fine_tune_lr),
                 loss='categorical_crossentropy',
                 metrics=['accuracy']
             )
             
-            logger.info(f"Fine-tuning with reduced learning rate: {fine_tune_lr}")
+            logger.info(f"Model recompiled for fine-tuning with lr={fine_tune_lr}")
             
-            callbacks = self.get_callbacks(patience=15)
+            # Create callbacks for fine-tuning
+            callbacks = [
+                EarlyStopping(
+                    monitor='val_loss',
+                    patience=5,
+                    restore_best_weights=True,
+                    verbose=1
+                ),
+                ReduceLROnPlateau(
+                    monitor='val_loss',
+                    factor=0.5,
+                    patience=3,
+                    min_lr=1e-7,
+                    verbose=1
+                )
+            ]
             
-            retrain_history = self.model.fit(
+            # Fine-tune the model
+            logger.info(f"Starting fine-tuning for {epochs} epochs...")
+            history = self.model.fit(
                 new_train_generator,
                 epochs=epochs,
                 validation_data=new_val_generator,
@@ -333,24 +357,27 @@ class FoodClassificationModel:
                 verbose=1
             )
             
-            # Save retrained model with proper versioning
-            if model_version is None:
-                # Auto-increment version
-                model_version = self._get_next_version()
+            # Get the next version number
+            next_version = self.get_next_version()
             
-            retrained_model_name = f"food_classifier_v{model_version}"
-            model_path = self.save_model(retrained_model_name)
+            # Save the fine-tuned model
+            model_filename = f"food_classifier_v{next_version}.h5"
+            model_path = os.path.join(self.model_dir, model_filename)
             
-            # Create latest symlink/copy
-            if model_path:
-                self._create_latest_model(model_path)
+            self.model.save(model_path)
+            logger.info(f"Fine-tuned model saved as: {model_filename}")
             
-            logger.info(f"Model fine-tuning completed! Saved as v{model_version}")
-            logger.info(f"Class structure preserved: {self.num_classes} classes")
-            return retrain_history, model_version
+            # Also save as latest
+            latest_path = os.path.join(self.model_dir, "food_classifier_latest.h5")
+            self.model.save(latest_path)
+            logger.info("Model also saved as latest version")
+            
+            return history, next_version
             
         except Exception as e:
-            logger.error(f"Error during retraining: {str(e)}")
+            logger.error(f"Error during retraining: {e}")
+            import traceback
+            traceback.print_exc()
             return None, None
     
     def _get_next_version(self):

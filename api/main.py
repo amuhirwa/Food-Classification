@@ -502,6 +502,31 @@ async def get_visualizations():
                             "low_confidence_percentage": round((low_conf_count / len(confidence_series)) * 100, 2)
                         }
                 
+                # Hourly prediction analysis for timeline chart
+                if 'timestamp' in df.columns:
+                    try:
+                        # Convert timestamps to datetime
+                        df['timestamp'] = pd.to_datetime(df['timestamp'])
+                        df['hour'] = df['timestamp'].dt.hour
+                        
+                        # Count predictions per hour
+                        hourly_counts = df.groupby('hour').size().to_dict()
+                        
+                        # Fill in missing hours with 0
+                        hourly_data = {}
+                        for hour in range(24):
+                            hourly_data[hour] = hourly_counts.get(hour, 0)
+                        
+                        prediction_insights["hourly_predictions"] = hourly_data
+                        
+                    except Exception as e:
+                        logger.warning(f"Error analyzing hourly predictions: {e}")
+                        # Create empty hourly data
+                        prediction_insights["hourly_predictions"] = {hour: 0 for hour in range(24)}
+                else:
+                    # Create empty hourly data if no timestamps
+                    prediction_insights["hourly_predictions"] = {hour: 0 for hour in range(24)}
+                
                 prediction_insights["total_predictions"] = len(prediction_logs)
                 
             except Exception as e:
@@ -726,31 +751,26 @@ async def retrain_model(
             if not os.path.exists(RETRAIN_DATA_DIR) or not os.listdir(RETRAIN_DATA_DIR):
                 raise ValueError("No training data found. Please upload training data first.")
             
-            # Get the current active model to preserve its class structure
-            latest_model_path = os.path.join(MODEL_DIR, "food_classifier_latest.h5")
-            base_model_path = latest_model_path if os.path.exists(latest_model_path) else None
+            # Always use the original model as base to preserve class structure
+            original_path = os.path.join(MODEL_DIR, "food_classifier_final.h5")
+            if not os.path.exists(original_path):
+                raise ValueError("No base model (food_classifier_final.h5) found to retrain from")
             
-            if not base_model_path:
-                # Always use the original model as base
-                original_path = os.path.join(MODEL_DIR, "food_classifier_final.h5")
-                if os.path.exists(original_path):
-                    base_model_path = original_path
-                else:
-                    raise ValueError("No base model (food_classifier_final.h5) found to retrain from")
-            
-            logger.info(f"Using base model: {base_model_path}")
+            logger.info(f"Using base model: {original_path}")
             
             # Load existing class mappings to preserve model structure
-            existing_class_mappings_path = os.path.join(MODEL_DIR, 'classes.json')
+            existing_class_mappings_path = os.path.join(MODEL_DIR, 'class_to_idx.pkl')
             if not os.path.exists(existing_class_mappings_path):
                 raise ValueError("No existing class mappings found. Cannot preserve model structure.")
             
-            with open(existing_class_mappings_path, 'r') as f:
-                existing_classes = json.load(f)
-                
-            logger.info(f"Preserving existing class structure: {len(existing_classes)} classes: {existing_classes}")
+            import joblib
+            existing_class_to_idx = joblib.load(existing_class_mappings_path)
+            existing_classes = list(existing_class_to_idx.keys())
             
-            # Initialize model trainer using the existing model's class count
+            logger.info(f"Preserving existing class structure: {len(existing_classes)} classes")
+            logger.info(f"Classes: {existing_classes}")
+            
+            # Initialize model trainer with the EXISTING number of classes
             global model_trainer
             if model_trainer is None:
                 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
@@ -759,7 +779,7 @@ async def retrain_model(
                 except ImportError:
                     from model import FoodClassificationModel
                 model_trainer = FoodClassificationModel
-            
+        
             # Create model instance with the EXISTING number of classes (preserve structure)
             model_instance = model_trainer(num_classes=len(existing_classes), model_dir=MODEL_DIR)
             
@@ -768,8 +788,10 @@ async def retrain_model(
             
             # Set the existing classes in the preprocessor to ensure consistency
             preprocessor_retrain.classes = existing_classes
-            preprocessor_retrain.class_to_idx = {cls: idx for idx, cls in enumerate(existing_classes)}
-            preprocessor_retrain.idx_to_class = {idx: cls for idx, cls in enumerate(existing_classes)}
+            preprocessor_retrain.class_to_idx = existing_class_to_idx
+            preprocessor_retrain.idx_to_class = {idx: cls for cls, idx in existing_class_to_idx.items()}
+            
+            logger.info("Creating data generators with preserved class mappings...")
             
             # Create data generators with the preserved class structure
             train_generator, val_generator = preprocessor_retrain.create_data_generators(
@@ -778,23 +800,24 @@ async def retrain_model(
                 preserve_class_mappings=True  # Preserve existing class structure
             )
             
-            # Verify that the new data can be mapped to existing classes
-            logger.info(f"Training data will be fine-tuned on existing {len(existing_classes)} classes")
+            if train_generator is None or val_generator is None:
+                raise ValueError("Failed to create data generators")
+            
+            logger.info(f"Data generators created successfully")
+            logger.info(f"Train generator classes: {train_generator.num_classes}")
+            logger.info(f"Train samples: {train_generator.samples}")
+            logger.info(f"Val samples: {val_generator.samples}")
             
             # Use the retrain_model method from FoodClassificationModel
             retrain_history, model_version = model_instance.retrain_model(
                 new_train_generator=train_generator,
                 new_val_generator=val_generator,
-                base_model_path=base_model_path,
+                base_model_path=original_path,
                 epochs=epochs
             )
             
             if retrain_history is None or model_version is None:
                 raise ValueError("Model retraining failed")
-            
-            # DO NOT save new class mappings - preserve the existing ones
-            # The class structure should remain unchanged
-            logger.info("Preserving existing class mappings - no changes to model structure")
             
             # Calculate performance metrics
             final_accuracy = float(retrain_history.history['accuracy'][-1])
@@ -837,6 +860,8 @@ async def retrain_model(
             
         except Exception as e:
             logger.error(f"Retraining failed: {e}")
+            import traceback
+            traceback.print_exc()
             RetrainingCRUD.update_retraining_task(
                 db=db,
                 task_id=task_id,
@@ -1046,7 +1071,7 @@ async def get_training_data_structure():
                 "Upload at least 10 images per category for best results",
                 "Ensure images are high quality and well-lit",
                 "New training data will fine-tune the existing model without changing class structure",
-                "Only upload images for classes that already exist in the model" if existing_classes else "Organize images by food category"
+                "Only upload images for classes that already exist in the model" if existing_classes else "Organize images by food category (e.g., 'Bread', 'Dessert', etc.)"
             ] if total_files > 0 else [
                 "No training data uploaded yet",
                 "Use POST /upload/training-data with category parameter to upload images",

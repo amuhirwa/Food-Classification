@@ -2,6 +2,15 @@
 
 A complete end-to-end Machine Learning Operations (MLOps) pipeline for food image classification with monitoring, retraining capabilities, and cloud deployment.
 
+### Demo Video
+
+Demo Video Link:
+
+### Deployed Links:
+
+UI: https://food-classifier-ui.redbeach-cd51ecd1.southafricanorth.azurecontainerapps.io/index.html
+API: https://food-classifier-api.redbeach-cd51ecd1.southafricanorth.azurecontainerapps.io
+
 ## 🎯 Project Overview
 
 This project demonstrates a comprehensive MLOps pipeline that includes:
@@ -87,7 +96,7 @@ Food_Classification/
 ### 1. Clone and Setup
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/amuhirwa/Food-Classification.git
 cd Food_Classification
 pip install -r requirements.txt
 ```
@@ -111,7 +120,7 @@ python main.py
 
 ### 4. Access the Dashboard
 
-Open `ui/dashboard.html` in your browser or serve it with:
+Open `ui/index.html` in your browser or serve it with:
 
 ```bash
 cd ui
@@ -178,7 +187,7 @@ docker run -p 8000:8000 food-classifier
 
 The model achieves:
 
-- **Accuracy**: >90% on validation set
+- **Accuracy**: >85% on validation set
 - **Precision**: >89% weighted average
 - **Recall**: >88% weighted average
 - **F1-Score**: >89% weighted average
@@ -232,23 +241,6 @@ locust -f locustfile.py --host=http://localhost:8000
 
 ## ☁️ Cloud Deployment
 
-### AWS Deployment
-
-```bash
-# Deploy to AWS ECS/EKS
-./scripts/deploy_aws.sh
-
-# Or use AWS App Runner
-aws apprunner create-service --cli-input-json file://aws-apprunner.json
-```
-
-### Google Cloud Platform
-
-```bash
-# Deploy to Google Cloud Run
-gcloud run deploy food-classifier --source .
-```
-
 ### Azure Container Instances
 
 ```bash
@@ -279,21 +271,6 @@ az container create --resource-group myResourceGroup --name food-classifier --im
 - **Data Privacy**: No permanent storage of uploaded images
 - **Model Security**: Model versioning and rollback capabilities
 
-## 🧪 Testing
-
-```bash
-# Run unit tests
-python -m pytest tests/
-
-# Run API tests
-python -m pytest tests/test_api.py
-
-# Run model tests
-python -m pytest tests/test_model.py
-
-# Run integration tests
-python -m pytest tests/integration/
-```
 
 ## 📦 Model Artifacts
 
@@ -309,8 +286,6 @@ Trained models include:
 
 Key configuration files:
 
-- `config.yaml` - Model and training parameters
-- `.env` - Environment variables
 - `docker-compose.yml` - Container orchestration
 - `requirements.txt` - Python dependencies
 
@@ -348,7 +323,7 @@ curl http://localhost:8000/metrics
 
 ## 🎯 Performance Benchmarks
 
-### Model Performance by Class:
+### Model Performance by Class (Using training script):
 
 | Class           | Precision | Recall | F1-Score |
 | --------------- | --------- | ------ | -------- |
@@ -371,17 +346,6 @@ curl http://localhost:8000/metrics
 - **Memory Usage**: ~2GB with model loaded
 - **Model Size**: ~50MB (optimized)
 
-## 🎥 Demo Video
-
-[YouTube Demo Link] - Complete walkthrough showing:
-
-- Model training process
-- API deployment and usage
-- Dashboard functionality
-- Retraining workflow
-- Load testing results
-- Production deployment
-
 ## 🤝 Contributing
 
 1. Fork the repository
@@ -389,17 +353,6 @@ curl http://localhost:8000/metrics
 3. Make changes with tests
 4. Submit a pull request
 
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 📞 Support
-
-For questions or support:
-
-- Create an issue in the repository
-- Contact: [your-email@domain.com]
-- Documentation: [project-docs-url]
 
 ## 🙏 Acknowledgments
 
@@ -410,4 +363,3 @@ For questions or support:
 
 ---
 
-**Built with ❤️ for the Machine Learning community**

@@ -4,7 +4,8 @@ class FoodClassificationDashboard {
     this.currentTab = "prediction";
     this.batchFiles = [];
     this.charts = {};
-    // this.API_BASE = "https://food-classifier-api.redbeach-cd51ecd1.southafricanorth.azurecontainerapps.io";
+    // this.API_BASE =
+      // "https://food-classifier-api.redbeach-cd51ecd1.southafricanorth.azurecontainerapps.io";
     this.API_BASE = "http://127.0.0.1:8000";
 
     // Initialize dashboard
@@ -82,9 +83,16 @@ class FoodClassificationDashboard {
     } else if (tabName === "monitoring") {
       this.loadRecentPredictions();
     } else if (tabName === "training") {
-      // Load model versions for training tab
+      // Load training history and model versions for training tab
+      this.loadTrainingHistory();
       if (window.modelVersionManager) {
         window.modelVersionManager.loadModelVersions();
+      }
+    } else if (tabName === "models") {
+      // Load model versions for models tab
+      if (window.modelVersionManager) {
+        window.modelVersionManager.loadModelVersions();
+        window.modelVersionManager.loadCurrentModelInfo();
       }
     }
   }
@@ -345,10 +353,45 @@ class FoodClassificationDashboard {
 
   // Create dataset overview charts
   createDatasetOverviewCharts(data) {
+    const originalData = {
+      total_classes: 11,
+      total_images: 3347,
+      class_distribution: {
+        Bread: 368,
+        "Dairy product": 148,
+        Dessert: 500,
+        Egg: 335,
+        "Fried food": 287,
+        Meat: 432,
+        "Noodles-Pasta": 147,
+        Rice: 96,
+        Seafood: 303,
+        Soup: 500,
+        "Vegetable-Fruit": 231,
+      },
+      classes: [
+        "Bread",
+        "Dairy product",
+        "Dessert",
+        "Egg",
+        "Fried food",
+        "Meat",
+        "Noodles-Pasta",
+        "Rice",
+        "Seafood",
+        "Soup",
+        "Vegetable-Fruit",
+      ],
+      average_images_per_class: 304.27,
+      min_images_per_class: 96,
+      max_images_per_class: 500,
+      class_imbalance_ratio: 5.21,
+    };
+
     // Original dataset class distribution
-    if (data.dataset_overview?.original_data?.class_distribution) {
+    if (originalData.class_distribution) {
       this.createClassDistributionChart(
-        data.dataset_overview.original_data.class_distribution,
+        originalData.class_distribution,
         "Original Dataset"
       );
     }
@@ -365,6 +408,11 @@ class FoodClassificationDashboard {
       this.createConfidenceChart(data.prediction_insights.confidence_stats);
     }
 
+    // Hourly predictions timeline
+    if (data.prediction_insights?.hourly_predictions) {
+      this.createTimeChart(data.prediction_insights.hourly_predictions);
+    }
+
     // Dataset recommendations
     this.displayRecommendations(data.recommendations || []);
   }
@@ -373,7 +421,40 @@ class FoodClassificationDashboard {
   updatePerformanceMetrics(data) {
     const container = document.getElementById("performance-metrics");
     const summary = data.summary || {};
-    const originalData = data.dataset_overview?.original_data || {};
+    const originalData = {
+      total_classes: 11,
+      total_images: 3347,
+      class_distribution: {
+        Bread: 368,
+        "Dairy product": 148,
+        Dessert: 500,
+        Egg: 335,
+        "Fried food": 287,
+        Meat: 432,
+        "Noodles-Pasta": 147,
+        Rice: 96,
+        Seafood: 303,
+        Soup: 500,
+        "Vegetable-Fruit": 231,
+      },
+      classes: [
+        "Bread",
+        "Dairy product",
+        "Dessert",
+        "Egg",
+        "Fried food",
+        "Meat",
+        "Noodles-Pasta",
+        "Rice",
+        "Seafood",
+        "Soup",
+        "Vegetable-Fruit",
+      ],
+      average_images_per_class: 304.27,
+      min_images_per_class: 96,
+      max_images_per_class: 500,
+      class_imbalance_ratio: 5.21,
+    };
     const retrainData = data.dataset_overview?.retrain_data || {};
 
     container.innerHTML = `
@@ -689,6 +770,9 @@ class FoodClassificationDashboard {
     const file = input.files[0];
     if (!file) return;
 
+    // Prevent any form submission
+    event.preventDefault();
+
     const formData = new FormData();
     formData.append("zip_file", file);
 
@@ -705,18 +789,27 @@ class FoodClassificationDashboard {
 
       const result = await response.json();
 
-      if (result.success) {
+      if (response.ok && result.message) {
         document.getElementById("training-upload-result").innerHTML = `
-                    <div class="alert alert-success">
-                        <i class="fas fa-check-circle"></i>
-                        <strong>Upload Successful!</strong><br>
-                        Total images: ${result.data_info.total_files}<br>
-                        Valid images: ${result.data_info.valid_images}<br>
-                        Classes: ${Object.keys(result.data_info.classes).length}
-                    </div>
-                `;
+          <div class="alert alert-success">
+            <i class="fas fa-check-circle"></i>
+            <strong>Upload Successful!</strong><br>
+            ${result.message}<br>
+            Total files: ${result.total_files || 0}<br>
+            Categories: ${
+              result.files
+                ? [...new Set(result.files.map((f) => f.category))].length
+                : 0
+            }
+          </div>
+        `;
       } else {
-        this.showAlert("Upload failed", "error");
+        document.getElementById("training-upload-result").innerHTML = `
+          <div class="alert alert-error">
+            <i class="fas fa-exclamation-triangle"></i>
+            Upload failed: ${result.detail || "Unknown error"}
+          </div>
+        `;
       }
 
       document
@@ -724,7 +817,15 @@ class FoodClassificationDashboard {
         .classList.remove("hidden");
     } catch (error) {
       console.error("Upload error:", error);
-      this.showAlert("Upload failed", "error");
+      document.getElementById("training-upload-result").innerHTML = `
+        <div class="alert alert-error">
+          <i class="fas fa-exclamation-triangle"></i>
+          Upload failed: ${error.message}
+        </div>
+      `;
+      document
+        .getElementById("training-upload-result")
+        .classList.remove("hidden");
     }
   }
 
@@ -849,6 +950,89 @@ class FoodClassificationDashboard {
       }
     } catch (error) {
       console.error("Error loading recent predictions:", error);
+    }
+  }
+
+  // Load training history
+  async loadTrainingHistory() {
+    try {
+      const response = await fetch(`${this.API_BASE}/training/status`);
+      const data = await response.json();
+
+      const container = document.getElementById("training-history");
+
+      if (
+        data.recent_retraining_jobs &&
+        data.recent_retraining_jobs.length > 0
+      ) {
+        container.innerHTML = `
+          <div class="training-history-list">
+            ${data.recent_retraining_jobs
+              .map(
+                (job) => `
+                  <div class="training-job-item">
+                    <div class="job-header">
+                      <span class="job-id"><i class="fas fa-rocket"></i> ${job.task_id.substring(
+                        0,
+                        8
+                      )}...</span>
+                      <span class="job-status status-${
+                        job.status
+                      }">${job.status.toUpperCase()}</span>
+                    </div>
+                    <div class="job-details">
+                      <div class="job-detail">
+                        <span class="detail-label">Started:</span>
+                        <span class="detail-value">${new Date(
+                          job.started_at
+                        ).toLocaleString()}</span>
+                      </div>
+                      ${
+                        job.completed_at
+                          ? `
+                        <div class="job-detail">
+                          <span class="detail-label">Completed:</span>
+                          <span class="detail-value">${new Date(
+                            job.completed_at
+                          ).toLocaleString()}</span>
+                        </div>
+                      `
+                          : ""
+                      }
+                      ${
+                        job.error_message
+                          ? `
+                        <div class="job-detail error">
+                          <span class="detail-label">Error:</span>
+                          <span class="detail-value">${job.error_message}</span>
+                        </div>
+                      `
+                          : ""
+                      }
+                    </div>
+                  </div>
+                `
+              )
+              .join("")}
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> 
+            No training history available. Start your first retraining to see history here.
+          </div>
+        `;
+      }
+    } catch (error) {
+      console.error("Error loading training history:", error);
+      const container = document.getElementById("training-history");
+      container.innerHTML = `
+        <div class="alert alert-error">
+          <i class="fas fa-exclamation-triangle"></i> 
+          Failed to load training history
+        </div>
+      `;
     }
   }
 
