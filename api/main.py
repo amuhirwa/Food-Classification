@@ -1137,7 +1137,7 @@ async def get_retraining_task_status(task_id: str, db: Session = Depends(get_db)
         if not task:
             raise HTTPException(status_code=404, detail="Retraining task not found")
         
-        return {
+        response_data = {
             "task_id": task.task_id,
             "status": task.status,
             "started_at": task.started_at,
@@ -1146,6 +1146,26 @@ async def get_retraining_task_status(task_id: str, db: Session = Depends(get_db)
             "dataset_id": task.dataset_id,
             "new_model_id": task.new_model_id
         }
+        
+        # If task is completed and we have a new model, get its performance metrics
+        if task.status == "completed" and task.new_model_id:
+            try:
+                new_model = ModelCRUD.get_model(db, task.new_model_id)
+                if new_model and new_model.performance_metrics:
+                    performance_metrics = json.loads(new_model.performance_metrics)
+                    # Extract accuracy for display
+                    if "final_val_accuracy" in performance_metrics:
+                        response_data["accuracy"] = performance_metrics["final_val_accuracy"]
+                    elif "val_accuracy" in performance_metrics:
+                        response_data["accuracy"] = performance_metrics["val_accuracy"]
+                    
+                    # Add other useful metrics
+                    response_data["performance_metrics"] = performance_metrics
+                    
+            except Exception as e:
+                logger.warning(f"Could not load performance metrics for completed task: {e}")
+        
+        return response_data
     except HTTPException:
         raise
     except Exception as e:

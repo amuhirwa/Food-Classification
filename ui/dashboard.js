@@ -919,8 +919,8 @@ class FoodClassificationDashboard {
                     <i class="fas fa-spinner fa-spin"></i>
                     <strong>Retraining Status:</strong> ${status.status}<br>
                     ${
-                      status.error
-                        ? `<i class="fas fa-exclamation-triangle"></i> Error: ${status.error}`
+                      status.error_message
+                        ? `<i class="fas fa-exclamation-triangle"></i> Error: ${status.error_message}`
                         : ""
                     }
                     ${
@@ -930,12 +930,30 @@ class FoodClassificationDashboard {
                           ).toLocaleString()}`
                         : ""
                     }
+                    ${
+                      status.accuracy !== undefined &&
+                      status.status === "completed"
+                        ? `<div class="performance-metric" style="margin-top: 10px;">
+                             <i class="fas fa-chart-line"></i> 
+                             <strong>Accuracy:</strong> ${(
+                               status.accuracy * 100
+                             ).toFixed(1)}%
+                           </div>`
+                        : ""
+                    }
                 </div>
             `;
 
       if (status.status === "completed" || status.status === "failed") {
         if (status.status === "completed") {
-          this.showAlert("Retraining completed successfully!", "success");
+          const accuracyText =
+            status.accuracy !== undefined
+              ? ` (Accuracy: ${(status.accuracy * 100).toFixed(1)}%)`
+              : "";
+          this.showAlert(
+            `Retraining completed successfully!${accuracyText}`,
+            "success"
+          );
           this.loadModelInfo(); // Refresh model info
 
           // Refresh model versions
