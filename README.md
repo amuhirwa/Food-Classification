@@ -12,6 +12,8 @@ UI: https://food-classifier-ui.redbeach-cd51ecd1.southafricanorth.azurecontainer
 
 API: https://food-classifier-api.redbeach-cd51ecd1.southafricanorth.azurecontainerapps.io
 
+API Documentation: https://food-classifier-api.redbeach-cd51ecd1.southafricanorth.azurecontainerapps.io/docs
+
 ## 🎯 Project Overview
 
 This project demonstrates a comprehensive MLOps pipeline that includes:
