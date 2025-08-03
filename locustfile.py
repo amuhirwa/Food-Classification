@@ -602,25 +602,42 @@ class EndToEndMLOpsUser(HttpUser):
         print(f"✅ E2E workflow {self.workflow_id} completed")
     
     def upload_training_data(self):
-        """Upload training data for the workflow"""
-        print(f"📤 Uploading training data for workflow {self.workflow_id}")
+        """Upload training data for the workflow using ZIP"""
+        print(f"📤 Uploading training data via ZIP for workflow {self.workflow_id}")
         
-        total_uploaded = 0
-        for category, images in self.test_data.items():
-            # Upload 2-3 images per category
-            for img_data in images[:3]:
-                files = {'files': (img_data['filename'], img_data['data'], 'image/jpeg')}
-                data = {'category': category}
-                
-                response = self.client.post("/upload/training-data", files=files, data=data)
-                if response.status_code == 200:
-                    total_uploaded += 1
-                else:
-                    print(f"❌ Upload failed for {category}: {response.status_code}")
-                    return False
+        # Create ZIP file with all training data
+        zip_buffer = io.BytesIO()
+        total_files = 0
         
-        print(f"✅ Uploaded {total_uploaded} files")
-        return total_uploaded > 0
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for category, images in self.test_data.items():
+                # Add 3-4 images per category to ZIP
+                for img_data in images[:4]:
+                    zip_file.writestr(
+                        f"{category}/{img_data['filename']}", 
+                        img_data['data']
+                    )
+                    total_files += 1
+        
+        zip_buffer.seek(0)
+        zip_filename = f'e2e_training_data_{self.workflow_id}.zip'
+        
+        # Upload the ZIP file
+        files = {'zip_file': (zip_filename, zip_buffer.getvalue(), 'application/zip')}
+        
+        response = self.client.post("/upload/training-data-zip", files=files)
+        if response.status_code == 200:
+            try:
+                result = response.json()
+                uploaded_count = result.get('total_files', 0)
+                print(f"✅ ZIP upload successful: {uploaded_count} files uploaded")
+                return uploaded_count > 0
+            except Exception as e:
+                print(f"❌ ZIP upload response parsing failed: {e}")
+                return False
+        else:
+            print(f"❌ ZIP upload failed: {response.status_code}")
+            return False
     
     def verify_data_structure(self):
         """Verify uploaded data structure"""

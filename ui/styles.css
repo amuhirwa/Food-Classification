@@ -129,6 +129,13 @@ body::before {
   }
 }
 
+#prediction-model-selector:focus {
+  color: black;
+}
+#prediction-model-selector:focus option {
+  border: 4px solid black;
+}
+
 /* Container Styles */
 .container {
   max-width: 1400px;
@@ -470,6 +477,10 @@ body::before {
   backdrop-filter: blur(10px);
 }
 
+#model-version-selector:focus option {
+  color: black;
+}
+
 /* Alert Styles */
 .alert {
   padding: 1.5rem;
@@ -494,7 +505,7 @@ body::before {
 .alert-success {
   background: rgba(79, 172, 254, 0.15);
   border-color: rgba(79, 172, 254, 0.3);
-  color: #4facfe;
+  color: #13538b;
 }
 
 .alert-error {
