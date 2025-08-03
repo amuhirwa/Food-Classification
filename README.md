@@ -9,6 +9,7 @@ Demo Video Link: https://youtu.be/lsWurABtWV8
 ### Deployed Links:
 
 UI: https://food-classifier-ui.redbeach-cd51ecd1.southafricanorth.azurecontainerapps.io/index.html
+
 API: https://food-classifier-api.redbeach-cd51ecd1.southafricanorth.azurecontainerapps.io
 
 ## 🎯 Project Overview
