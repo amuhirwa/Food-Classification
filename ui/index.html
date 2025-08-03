@@ -240,8 +240,83 @@
           <div class="card">
             <h3><i class="fas fa-rocket"></i> Model Retraining</h3>
             <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 1rem">
-              Trigger model retraining with uploaded data
+              Configure and trigger model retraining with uploaded data
             </p>
+
+            <!-- Hyperparameter Controls -->
+            <div class="hyperparameter-controls">
+              <!-- Preset Buttons -->
+              <div class="preset-buttons">
+                <button
+                  type="button"
+                  class="btn btn-sm preset-btn"
+                  onclick="setPreset('fast')"
+                >
+                  <i class="fas fa-bolt"></i> Fast (5 epochs)
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm preset-btn"
+                  onclick="setPreset('balanced')"
+                >
+                  <i class="fas fa-balance-scale"></i> Balanced (10 epochs)
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm preset-btn"
+                  onclick="setPreset('thorough')"
+                >
+                  <i class="fas fa-microscope"></i> Thorough (20 epochs)
+                </button>
+              </div>
+
+              <div class="hyperparameter-group">
+                <label for="epochs-input">Epochs:</label>
+                <input
+                  type="number"
+                  id="epochs-input"
+                  min="1"
+                  max="100"
+                  value="10"
+                  class="hyperparameter-input"
+                />
+                <small class="hyperparameter-help"
+                  >Number of training epochs (1-100)</small
+                >
+              </div>
+
+              <div class="hyperparameter-group">
+                <label for="learning-rate-input">Learning Rate:</label>
+                <input
+                  type="number"
+                  id="learning-rate-input"
+                  min="0.00001"
+                  max="0.1"
+                  step="0.00001"
+                  value="0.001"
+                  class="hyperparameter-input"
+                />
+                <small class="hyperparameter-help"
+                  >Learning rate for fine-tuning (0.00001-0.1)</small
+                >
+              </div>
+
+              <div class="hyperparameter-group">
+                <label for="batch-size-input">Batch Size:</label>
+                <input
+                  type="number"
+                  id="batch-size-input"
+                  min="8"
+                  max="64"
+                  value="32"
+                  class="hyperparameter-input"
+                />
+                <small class="hyperparameter-help"
+                  >Training batch size (8-64)</small
+                >
+              </div>
+            </div>
+
             <button
               class="btn btn-success"
               id="retrain-btn"
@@ -369,6 +444,43 @@
             window.modelVersionManager.loadModelVersions();
           }
         }
+      }
+
+      // Hyperparameter preset functions
+      function setPreset(presetType) {
+        const epochsInput = document.getElementById("epochs-input");
+        const learningRateInput = document.getElementById(
+          "learning-rate-input"
+        );
+        const batchSizeInput = document.getElementById("batch-size-input");
+
+        switch (presetType) {
+          case "fast":
+            epochsInput.value = 5;
+            learningRateInput.value = 0.002;
+            batchSizeInput.value = 32;
+            break;
+          case "balanced":
+            epochsInput.value = 10;
+            learningRateInput.value = 0.001;
+            batchSizeInput.value = 32;
+            break;
+          case "thorough":
+            epochsInput.value = 20;
+            learningRateInput.value = 0.0005;
+            batchSizeInput.value = 16;
+            break;
+        }
+
+        // Visual feedback
+        [epochsInput, learningRateInput, batchSizeInput].forEach((input) => {
+          input.style.borderColor = "rgba(102, 126, 234, 0.8)";
+          input.style.boxShadow = "0 0 0 3px rgba(102, 126, 234, 0.2)";
+          setTimeout(() => {
+            input.style.borderColor = "";
+            input.style.boxShadow = "";
+          }, 1000);
+        });
       }
     </script>
   </body>

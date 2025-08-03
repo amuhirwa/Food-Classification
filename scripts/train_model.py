@@ -87,19 +87,19 @@ def main():
     if evaluation_results:
         logger.info(f"Evaluation results: {evaluation_results}")
     
-    # Save model
+    # Save model with performance metrics
     logger.info("Saving model...")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     model_name = f"food_classifier_{args.base_model}_{timestamp}"
     
-    success = food_model.save_model(model_name)
+    success = food_model.save_model(model_name, include_metadata=True, validation_generator=val_gen)
     
     if success:
         logger.info(f"Model saved successfully as {model_name}")
         
-        # Also save as final model for deployment
-        final_model_name = "food_classifier_v_original"
-        food_model.save_model(final_model_name)
+        # Also save as final model for deployment with metrics
+        final_model_name = "food_classifier_final"
+        food_model.save_model(final_model_name, include_metadata=True, validation_generator=val_gen)
         logger.info(f"Model also saved as {final_model_name} for deployment")
     else:
         logger.error("Failed to save model")

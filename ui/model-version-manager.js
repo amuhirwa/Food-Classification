@@ -278,6 +278,26 @@ class ModelVersionManager {
             <span class="detail-label">Predictions:</span>
             <span class="detail-value">${modelInfo.predictions_made}</span>
           </div>
+          ${
+            modelInfo.accuracy !== undefined
+              ? `<div class="detail-item">
+                   <span class="detail-label">Accuracy:</span>
+                   <span class="detail-value performance-metric">${(
+                     modelInfo.accuracy * 100
+                   ).toFixed(1)}%</span>
+                 </div>`
+              : ""
+          }
+          ${
+            modelInfo.f1_score !== undefined
+              ? `<div class="detail-item">
+                   <span class="detail-label">F1 Score:</span>
+                   <span class="detail-value performance-metric">${(
+                     modelInfo.f1_score * 100
+                   ).toFixed(1)}%</span>
+                 </div>`
+              : ""
+          }
           <div class="detail-item" style="width: max-content; overflow: hidden; text-overflow: ellipsis;">
             <span class="detail-label">Model Path:</span>
             <span class="detail-value" title="${

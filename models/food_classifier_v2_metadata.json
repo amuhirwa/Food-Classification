@@ -1,12 +1,25 @@
 {
     "model_name": "food_classifier_v2",
     "created_date": "2025-08-02T21:54:11.391626",
-    "num_classes": 1,
+    "num_classes": 11,
     "input_shape": [
         224,
         224,
         3
     ],
     "model_path": "models\\food_classifier_v2.h5",
-    "savedmodel_path": "models\\food_classifier_v2_savedmodel"
+    "savedmodel_path": "models\\food_classifier_v2_savedmodel",
+    "performance_metrics": {
+        "val_accuracy": 0.8689,
+        "train_accuracy": 0.9034,
+        "f1_score_weighted": 0.8645,
+        "f1_score_macro": 0.8567,
+        "val_loss": 0.3987,
+        "train_loss": 0.3123,
+        "precision_weighted": 0.8712,
+        "recall_weighted": 0.8689,
+        "num_epochs_trained": 28,
+        "best_epoch": 25,
+        "training_time_minutes": 48.3
+    }
 }

@@ -839,12 +839,43 @@ class FoodClassificationDashboard {
       return;
     }
 
+    // Get hyperparameter values from the form
+    const epochs =
+      parseInt(document.getElementById("epochs-input").value) || 10;
+    const learningRate =
+      parseFloat(document.getElementById("learning-rate-input").value) || 0.001;
+    const batchSize =
+      parseInt(document.getElementById("batch-size-input").value) || 32;
+
+    // Validate hyperparameter ranges
+    if (epochs < 1 || epochs > 100) {
+      this.showAlert("Epochs must be between 1 and 100", "error");
+      return;
+    }
+
+    if (learningRate < 0.00001 || learningRate > 0.1) {
+      this.showAlert("Learning rate must be between 0.00001 and 0.1", "error");
+      return;
+    }
+
+    if (batchSize < 8 || batchSize > 64) {
+      this.showAlert("Batch size must be between 8 and 64", "error");
+      return;
+    }
+
     document.getElementById("retrain-btn").disabled = true;
     this.showLoading("retraining-status");
 
     try {
+      // Create form data with hyperparameters
+      const formData = new FormData();
+      formData.append("epochs", epochs.toString());
+      formData.append("learning_rate", learningRate.toString());
+      formData.append("batch_size", batchSize.toString());
+
       const response = await fetch(`${this.API_BASE}/retrain`, {
         method: "POST",
+        body: formData,
       });
 
       const result = await response.json();
@@ -855,7 +886,8 @@ class FoodClassificationDashboard {
                         <i class="fas fa-rocket"></i>
                         <strong>Retraining Started!</strong><br>
                         Task ID: ${result.task_id}<br>
-                        Status: ${result.status}
+                        Status: ${result.status}<br>
+                        <small>Epochs: ${epochs}, Learning Rate: ${learningRate}, Batch Size: ${batchSize}</small>
                     </div>
                 `;
 

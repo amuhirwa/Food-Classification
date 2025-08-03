@@ -17,9 +17,15 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 import pandas as pd
-from PIL import Image
-import zipfile
+import math
+import time
+import sys
 import logging
+import traceback
+import joblib
+import tempfile
+import zipfile
+from PIL import Image
 import time
 
 # Import custom modules
@@ -713,6 +719,7 @@ async def retrain_model(
     dataset_id: Optional[int] = None,
     epochs: int = 10,
     batch_size: int = 32,
+    learning_rate: float = 0.001,
     db: Session = Depends(get_db)
 ):
     """Start model retraining in background"""
@@ -725,7 +732,11 @@ async def retrain_model(
     
     # Create retraining task record
     active_model = ModelCRUD.get_active_model(db)
-    training_params = {"epochs": epochs, "batch_size": batch_size}
+    training_params = {
+        "epochs": epochs, 
+        "batch_size": batch_size,
+        "learning_rate": learning_rate
+    }
     
     task = RetrainingCRUD.create_retraining_task(
         db=db,
@@ -813,7 +824,8 @@ async def retrain_model(
                 new_train_generator=train_generator,
                 new_val_generator=val_generator,
                 base_model_path=original_path,
-                epochs=epochs
+                epochs=epochs,
+                learning_rate=learning_rate
             )
             
             if retrain_history is None or model_version is None:
@@ -1299,7 +1311,22 @@ async def get_current_model_info():
         num_classes = len(getattr(predictor, 'class_names', []))
         class_names = getattr(predictor, 'class_names', [])
         
-        return {
+        # Try to load performance metrics from metadata
+        performance_metrics = {}
+        try:
+            # Extract model name from path
+            model_name = os.path.splitext(os.path.basename(model_path))[0]
+            metadata_path = os.path.join(MODEL_DIR, f"{model_name}_metadata.json")
+            
+            if os.path.exists(metadata_path):
+                with open(metadata_path, 'r') as f:
+                    metadata = json.load(f)
+                    performance_metrics = metadata.get('performance_metrics', {})
+                    logger.info(f"Loaded performance metrics: {performance_metrics}")
+        except Exception as e:
+            logger.warning(f"Could not load performance metrics: {e}")
+        
+        response_data = {
             "version": version,
             "model_path": model_path,
             "model_size_mb": model_size_mb,
@@ -1308,6 +1335,18 @@ async def get_current_model_info():
             "loaded_at": model_metrics.get("uptime_start", datetime.now()).isoformat(),
             "predictions_made": model_metrics.get("total_predictions", 0)
         }
+        
+        # Add performance metrics if available
+        if performance_metrics:
+            response_data.update({
+                "accuracy": performance_metrics.get("val_accuracy", 0.0),
+                "f1_score": performance_metrics.get("f1_score_weighted", 0.0),
+                "f1_score_macro": performance_metrics.get("f1_score_macro", 0.0),
+                "train_accuracy": performance_metrics.get("train_accuracy", 0.0),
+                "val_loss": performance_metrics.get("val_loss", 0.0)
+            })
+        
+        return response_data
         
     except Exception as e:
         logger.error(f"Error getting current model info: {e}")

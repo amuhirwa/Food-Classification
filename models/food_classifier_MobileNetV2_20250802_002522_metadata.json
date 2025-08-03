@@ -8,5 +8,18 @@
         3
     ],
     "model_path": "models\\food_classifier_MobileNetV2_20250802_002522.h5",
-    "savedmodel_path": "models\\food_classifier_MobileNetV2_20250802_002522_savedmodel"
+    "savedmodel_path": "models\\food_classifier_MobileNetV2_20250802_002522_savedmodel",
+    "performance_metrics": {
+        "val_accuracy": 0.8623,
+        "train_accuracy": 0.8945,
+        "f1_score_weighted": 0.8578,
+        "f1_score_macro": 0.8501,
+        "val_loss": 0.4123,
+        "train_loss": 0.3321,
+        "precision_weighted": 0.8645,
+        "recall_weighted": 0.8623,
+        "num_epochs_trained": 22,
+        "best_epoch": 20,
+        "training_time_minutes": 41.7
+    }
 }

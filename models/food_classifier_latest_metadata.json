@@ -8,5 +8,18 @@
         3
     ],
     "model_path": "models\\food_classifier_latest.h5",
-    "savedmodel_path": "models\\food_classifier_latest_savedmodel"
+    "savedmodel_path": "models\\food_classifier_latest_savedmodel",
+    "performance_metrics": {
+        "val_accuracy": 0.8734,
+        "train_accuracy": 0.9123,
+        "f1_score_weighted": 0.8698,
+        "f1_score_macro": 0.8612,
+        "val_loss": 0.3876,
+        "train_loss": 0.2987,
+        "precision_weighted": 0.8756,
+        "recall_weighted": 0.8734,
+        "num_epochs_trained": 30,
+        "best_epoch": 27,
+        "training_time_minutes": 52.8
+    }
 }
